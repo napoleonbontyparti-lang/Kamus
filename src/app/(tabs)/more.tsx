@@ -37,13 +37,13 @@ export default function MoreScreen() {
     const decks = listDecks();
     if (!decks.length) return Alert.alert("Нет колод");
     const body = decks.map((d) => `#deck:${d.name}\n` + exportDeckTsv(d.id)).join("\n\n");
-    share("kamus-cards.txt", body);
+    share("katacil-cards.txt", body);
   };
 
   const exportEdits = () => {
     const e = allEntryEdits();
     if (!e.length) return Alert.alert("Правок пока нет");
-    share("kamus-edits.json", JSON.stringify(e.map((x) => ({ entry_id: x.entry_id, senses: JSON.parse(x.data) })), null, 2));
+    share("katacil-edits.json", JSON.stringify(e.map((x) => ({ entry_id: x.entry_id, senses: JSON.parse(x.data) })), null, 2));
   };
 
   const Row = ({ icon, title, sub, onPress }: { icon: any; title: string; sub?: string; onPress?: () => void }) => (
@@ -59,7 +59,7 @@ export default function MoreScreen() {
   return (
     <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={{ padding: 12, paddingBottom: 40 }}>
       <KancilSays mood="hello" size={112} title="Saya Si Kancil!"
-        text="Маленький, но хитрый оленёк из индонезийских сказок. Помогу найти любое слово и не дам его забыть." />
+        text="Добро пожаловать в KataCil: kata — «слово», cil — от kancil и kecil. Я маленький, но хитрый оленёк из индонезийских сказок: найду любое слово и не дам его забыть." />
       <Text style={[styles.h, { color: t.muted }]}>СЛОВАРЬ</Text>
       <Row icon="book-outline" title={meta.title ?? "Словарь"}
         sub={`${Number(meta.entries ?? 0).toLocaleString("ru")} гнёзд · ${Number(meta.forms ?? 0).toLocaleString("ru")} словоформ · работает без интернета`} />

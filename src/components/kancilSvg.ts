@@ -1,7 +1,6 @@
 /**
  * Si Kancil — маскот приложения в минималистичном линейном стиле.
- * Оригинальный рисунок: малый канчиль (Tragulus) — без рогов, на тонких ножках,
- * с белыми полосками на горле. Контур строится как объединение фигур:
+ * Оригинальный рисунок: малый канчиль (Tragulus) — без рогов, на тонких ножках. Контур строится как объединение фигур:
  * сначала все фигуры обводятся толстой линией, потом заливаются цветом фона —
  * остаётся один непрерывный контур без внутренних швов.
  */
@@ -84,14 +83,6 @@ function face(mood: Mood, c: KancilColors, dy: number): string {
   return nose + blush + eyes + mouth + ear;
 }
 
-function stripes(c: KancilColors, lying: boolean): string {
-  // полоски на горле — короткие штрихи
-  const s = `stroke="${c.ink}" stroke-width="3.2" stroke-linecap="round" fill="none"`;
-  return lying
-    ? `<path d="M88 126 q5 -4 11 -2" ${s}/><path d="M93 135 q5 -4 11 -2" ${s}/>`
-    : `<path d="M86 104 q5 -4 11 -2" ${s}/><path d="M92 114 q5 -4 11 -2" ${s}/>`;
-}
-
 function extras(mood: Mood, c: KancilColors): string {
   const s = `stroke="${c.ink}" stroke-width="${W}" stroke-linecap="round" stroke-linejoin="round"`;
   const font = `font-family="Nunito, Arial Rounded MT Bold, sans-serif" font-weight="900" fill="${c.accent}"`;
@@ -134,7 +125,6 @@ export function kancilSvg(mood: Mood = "hello", colors: Partial<KancilColors> = 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
   <g transform="rotate(${tilt} 104 110)">
     ${outline}${fill}
-    ${stripes(c, lying)}
     ${face(mood, c, lying ? 22 : 0)}
   </g>
   ${extras(mood, c)}

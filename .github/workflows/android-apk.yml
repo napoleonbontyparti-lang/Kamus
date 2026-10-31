@@ -51,5 +51,5 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: kamus-apk
+          name: katacil-apk
           path: android/app/build/outputs/apk/release/app-release.apk
