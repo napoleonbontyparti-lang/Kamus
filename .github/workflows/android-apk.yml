@@ -39,7 +39,14 @@ jobs:
         working-directory: android
         run: |
           echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g" >> gradle.properties
-          ./gradlew assembleRelease --no-daemon
+          set -o pipefail
+          ./gradlew assembleRelease --no-daemon 2>&1 | tee /tmp/gradle.log || {
+            # причину ошибки — в аннотации, чтобы её было видно без скачивания логов
+            awk '/What went wrong/{f=1} f{print} /Try:/{if(f)exit}' /tmp/gradle.log | head -40 > /tmp/err.txt
+            [ -s /tmp/err.txt ] || grep -iE "error|exception" /tmp/gradle.log | tail -25 > /tmp/err.txt
+            echo "::error title=Gradle::$(sed ':a;N;$!ba;s/%/%25/g;s/\r/%0D/g;s/\n/%0A/g' /tmp/err.txt)"
+            exit 1
+          }
 
       - uses: actions/upload-artifact@v4
         with:
