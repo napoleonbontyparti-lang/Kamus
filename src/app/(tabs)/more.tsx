@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
 import { Text, KancilSays } from "../../components/ui";
 import { useFocusEffect, router } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
@@ -8,6 +8,8 @@ import * as Sharing from "expo-sharing";
 import { Ionicons } from "@expo/vector-icons";
 import { allEntryEdits, listDecks, exportDeckTsv } from "../../lib/userdb";
 import { useTheme, soft } from "../../lib/theme";
+import { Word } from "../../components/Word";
+import { AFFIX_PALETTE, setAffixColors, useAffixColors, type AffixColors } from "../../lib/settings";
 
 export default function MoreScreen() {
   const t = useTheme();
@@ -67,6 +69,9 @@ export default function MoreScreen() {
         sub="Если слова нет в словаре — кнопка внизу результатов поиска или «KBBI» в статье. Нужен интернет."
         onPress={() => router.push({ pathname: "/kbbi/[word]", params: { word: "kamus" } })} />
 
+      <Text style={[styles.h, { color: t.muted }]}>ЦВЕТНЫЕ АФФИКСЫ</Text>
+      <AffixSettings />
+
       <Text style={[styles.h, { color: t.muted }]}>ЭКСПОРТ</Text>
       <Row icon="share-outline" title="Все карточки (Anki TSV)" sub="Файл → Импорт в Anki; колонки: слово, перевод, корень, заметка" onPress={exportAll} />
       <Row icon="document-text-outline" title="Мои правки словаря (JSON)" sub="Пригодятся, чтобы внести исправления в следующую версию базы" onPress={exportEdits} />
@@ -99,5 +104,53 @@ const styles = StyleSheet.create({
   h: { fontSize: 12, fontWeight: "800", letterSpacing: 0.8, marginTop: 18, marginBottom: 8, marginLeft: 4 },
   row: { flexDirection: "row", gap: 12, alignItems: "center", padding: 14, borderRadius: 20, marginBottom: 10 },
   rowIcon: { width: 38, height: 38, borderRadius: 13, alignItems: "center", justifyContent: "center" },
+  affix: { padding: 14, borderRadius: 20, marginBottom: 10 },
+  preview: { marginTop: 12, padding: 12, borderRadius: 14, alignItems: "center" },
+  swatches: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 6 },
+  swatch: { width: 30, height: 30, borderRadius: 15, borderWidth: 2.5, alignItems: "center", justifyContent: "center" },
   editRow: { paddingVertical: 10, paddingHorizontal: 4, borderBottomWidth: StyleSheet.hairlineWidth },
 });
+
+const ROWS: { key: keyof Omit<AffixColors, "enabled">; label: string; ex: string }[] = [
+  { key: "pre", label: "Приставки", ex: "me-, ber-, di-, per-, ke-" },
+  { key: "root", label: "Корень", ex: "без цвета — обычный" },
+  { key: "suf", label: "Суффиксы", ex: "-kan, -an, -i" },
+  { key: "clitic", label: "Частицы и местоимения", ex: "-nya, -ku, -mu, -lah, -pun" },
+];
+
+function AffixSettings() {
+  const t = useTheme();
+  const c = useAffixColors();
+  return (
+    <View style={[styles.affix, { backgroundColor: t.card }, soft(t)]}>
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: t.text, fontSize: 16, fontWeight: "700" }}>Раскрашивать части слова</Text>
+          <Text style={{ color: t.muted, marginTop: 2 }}>В статьях, поиске и карточках</Text>
+        </View>
+        <Switch value={c.enabled} onValueChange={(v) => setAffixColors({ enabled: v })}
+          trackColor={{ true: t.accent, false: t.faint }} thumbColor="#fff" />
+      </View>
+      <View style={[styles.preview, { backgroundColor: t.bg }]}>
+        <Word force form="mempertanggungjawabkannya" root="tanggung jawab" style={{ fontSize: 19, fontWeight: "800", color: t.hw }} />
+        <Word force form="ditandatanganilah" root="tanda" style={{ fontSize: 19, fontWeight: "800", color: t.hw, marginTop: 2 }} />
+      </View>
+      {ROWS.map((r) => (
+        <View key={r.key} style={{ marginTop: 12, opacity: c.enabled ? 1 : 0.55 }}>
+          <Text style={{ color: t.text, fontWeight: "700" }}>{r.label} <Text style={{ color: t.muted, fontWeight: "400" }}>{r.ex}</Text></Text>
+          <View style={styles.swatches}>
+            {AFFIX_PALETTE.map((col) => {
+              const on = c[r.key] === col;
+              return (
+                <Pressable key={col || "none"} onPress={() => setAffixColors({ [r.key]: col })} hitSlop={4}
+                  style={[styles.swatch, { backgroundColor: col || t.bg, borderColor: on ? t.text : col ? "transparent" : t.faint }]}>
+                  {!col ? <Ionicons name="remove" size={16} color={t.muted} /> : null}
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}

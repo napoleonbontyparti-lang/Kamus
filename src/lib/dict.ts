@@ -16,6 +16,8 @@ export type Hit = {
   /** как найдено: точная форма / начало слова / через корень / по-русски */
   how: "exact" | "prefix" | "stem" | "ru";
   analysis?: string;
+  /** для найденного корня — его производные (гнездо + составные из других статей) */
+  children?: Hit[];
 };
 
 type FormRow = { form: string; entry_id: number; sense: number; gloss: string; hw: string; hom: number | null };
@@ -77,7 +79,72 @@ export async function search(db: SQLiteDatabase, query: string, limit = 60): Pro
     [q, upper, limit]);
   prefix.forEach((r) => add(toHit(r, "prefix")));
 
+  // 4. если введён корень — сразу показать все его производные
+  const roots = new Set<string>();
+  for (const h of hits) {
+    if (h.how === "exact" && normalize(h.form) === normalize(h.hw) && !roots.has(normalize(h.hw))) {
+      roots.add(normalize(h.hw));
+      h.children = await derivatives(db, h.hw);
+    }
+  }
+
   return hits.slice(0, limit);
+}
+
+/**
+ * Производные корня: все формы его гнезда (всех омонимов) + формы из других
+ * статей, которые разбираются до этого корня (в т. ч. составные: tanda tangan).
+ */
+export async function derivatives(db: SQLiteDatabase, root: string, limit = 80): Promise<Hit[]> {
+  const r = normalize(root);
+  const flat = r.replace(/[ \-']/g, "");
+  const own = await db.getAllAsync<FormRow & { norm: string }>(
+    `${FORM_SELECT.replace("SELECT f.form", "SELECT f.norm, f.form")}
+     WHERE e.hw = ? COLLATE NOCASE AND f.sense > 0 ORDER BY e.id, f.sense`, [root]);
+  const out: Hit[] = [];
+  const seen = new Set<string>();
+  for (const row of own) {
+    if (row.norm === r || seen.has(row.norm)) continue;
+    seen.add(row.norm);
+    out.push(toHit(row, "exact"));
+  }
+  // другие статьи: ищем подстроку корня (или без первой буквы — назализация) и проверяем разбором
+  if (flat.length >= 3) {
+    const pats = [`%${flat}%`];
+    if (flat.length > 3 && /^[ptks]/.test(flat)) pats.push(`%${flat.slice(1)}%`);
+    const rows = await db.getAllAsync<FormRow & { norm: string }>(
+      `${FORM_SELECT.replace("SELECT f.form", "SELECT f.norm, f.form")}
+       WHERE (${pats.map(() => "f.flat LIKE ?").join(" OR ")}) AND e.hw != ? COLLATE NOCASE LIMIT 600`,
+      [...pats, root]);
+    const cand = rows.filter((row) => !seen.has(row.norm) && row.norm !== r);
+    // составные корни: tanda + tangan — второй кусок должен быть словом словаря
+    const tails = new Set<string>();
+    const analysed = cand.map((row) => {
+      const cs = stemCandidates(row.norm).filter((c) => c.steps.length > 0);
+      const direct = cs.some((c) => c.root === flat);
+      const comp = cs.filter((c) => c.root.startsWith(flat) && c.root.length - flat.length >= 3).map((c) => c.root.slice(flat.length));
+      comp.forEach((t) => tails.add(t));
+      return { row, direct, comp };
+    });
+    let known = new Set<string>();
+    if (tails.size) {
+      const list = [...tails].slice(0, 300);
+      const k = await db.getAllAsync<{ norm: string }>(
+        `SELECT DISTINCT norm FROM forms WHERE sense = 0 AND norm IN (${list.map(() => "?").join(",")})`, list);
+      known = new Set(k.map((x) => x.norm));
+    }
+    for (const a of analysed) {
+      if (!(a.direct || a.comp.some((t) => known.has(t)))) continue;
+      // форма из гнезда другого, более длинного корня (tandas → ketandasan) — не наша
+      const own = normalize(a.row.hw);
+      const ownFlat = own.replace(/[ \-']/g, "");
+      if (ownFlat !== flat && ownFlat.startsWith(flat) && !/[ \-]/.test(own) && a.row.norm.includes(ownFlat)) continue;
+      if (seen.has(a.row.norm)) continue;
+      seen.add(a.row.norm);
+      out.push(toHit(a.row, "stem"));
+    }
+  }
+  return out.slice(0, limit);
 }
 
 /** Обратный поиск: русское слово в толкованиях. */

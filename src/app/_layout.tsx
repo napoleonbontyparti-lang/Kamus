@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { Stack } from "expo-router";
-import { SQLiteProvider } from "expo-sqlite";
+import { SQLiteProvider, deleteDatabaseSync } from "expo-sqlite";
 import { StatusBar } from "expo-status-bar";
 import {
   useFonts, Nunito_400Regular, Nunito_400Regular_Italic, Nunito_600SemiBold, Nunito_600SemiBold_Italic,
@@ -13,7 +13,17 @@ import { useTheme } from "../lib/theme";
 import { userDb } from "../lib/userdb";
 
 // Имя файла меняется вместе с версией словаря — тогда новая база копируется заново.
-const DICT_DB = "dictionary-v1.db";
+const DICT_DB = "dictionary-v2.db";
+
+/** Старые версии базы словаря больше не нужны — освобождаем ~25 МБ. */
+let cleaned = false;
+function cleanupOldDictionaries() {
+  if (cleaned) return;
+  cleaned = true;
+  for (const old of ["dictionary-v1.db"]) {
+    try { deleteDatabaseSync(old); } catch { /* файла нет — ничего страшного */ }
+  }
+}
 
 function Loading({ text }: { text: string }) {
   const t = useTheme();
@@ -34,13 +44,14 @@ export default function RootLayout() {
     Nunito_900Black, Nunito_900Black_Italic,
   });
   userDb(); // создать таблицы пользователя при старте
+  cleanupOldDictionaries();
   if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: t.bg }} />;
 
   return (
     <Suspense fallback={<Loading text="Si Kancil раскладывает словарь…" />}>
       <SQLiteProvider
         databaseName={DICT_DB}
-        assetSource={{ assetId: require("../../assets/dictionary-v1.db") }}
+        assetSource={{ assetId: require("../../assets/dictionary-v2.db") }}
         options={{ useNewConnection: false }}
         useSuspense
       >

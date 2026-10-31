@@ -8,6 +8,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { search, type Hit } from "../../lib/dict";
 import { addHistory, clearHistory, recentHistory } from "../../lib/userdb";
 import { useTheme, soft } from "../../lib/theme";
+import { Word } from "../../components/Word";
 
 const HOW_LABEL: Record<Hit["how"], string> = { exact: "", prefix: "", stem: "разбор", ru: "" };
 
@@ -20,6 +21,7 @@ export default function SearchScreen() {
   const [hits, setHits] = useState<Hit[]>([]);
   const [history, setHistory] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const reqId = useRef(0);
 
   useEffect(() => { if (params.q) setQ(params.q); }, [params.q]);
@@ -35,6 +37,8 @@ export default function SearchScreen() {
     }, 120);
     return () => clearTimeout(h);
   }, [q, db]);
+
+  const toggle = (k: string) => setExpanded((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
 
   const open = (h: Hit) => {
     addHistory(q.trim());
@@ -119,7 +123,7 @@ export default function SearchScreen() {
             <Pressable onPress={() => open(item)} style={({ pressed }) => [
               styles.row, { backgroundColor: pressed ? t.accentSoft : t.card }]}>
               <View style={styles.rowHead}>
-                <Text style={[styles.form, { color: t.hw }]}>{item.form}</Text>
+                <Word form={item.form} root={item.hw} style={[styles.form, { color: t.hw }]} />
                 {item.hom ? <Text style={[styles.hom, { color: t.muted }]}>{item.hom}</Text> : null}
                 {item.form.toLowerCase() !== item.hw.toLowerCase() ? (
                   <Text style={[styles.rootLabel, { color: t.muted }]}>  ← {item.hw}</Text>
@@ -133,6 +137,31 @@ export default function SearchScreen() {
               <Text numberOfLines={2} style={[styles.gloss, { color: t.text }]}>
                 {item.gloss.replace(/~/g, item.form) || "—"}
               </Text>
+              {item.children?.length ? (() => {
+                const k = `${item.entryId}`;
+                const all = expanded.has(k);
+                const list = all ? item.children : item.children.slice(0, 8);
+                return (
+                  <View style={[styles.family, { borderLeftColor: t.accentSoft }]}>
+                    <Text style={[styles.familyHead, { color: t.accent }]}>ПРОИЗВОДНЫЕ · {item.children.length}</Text>
+                    {list.map((c) => (
+                      <Pressable key={`${c.entryId}:${c.sense}`} onPress={() => open(c)} style={styles.childRow} hitSlop={2}>
+                        <Text numberOfLines={1} style={{ flex: 1 }}>
+                          <Word form={c.form} root={c.hw} style={[styles.childForm, { color: t.hw }]} />
+                          <Text style={[styles.childGloss, { color: t.muted }]}>  {c.gloss.replace(/~/g, c.form)}</Text>
+                        </Text>
+                      </Pressable>
+                    ))}
+                    {item.children.length > 8 ? (
+                      <Pressable onPress={() => toggle(k)} hitSlop={6}>
+                        <Text style={{ color: t.accent, fontWeight: "700", marginTop: 4 }}>
+                          {all ? "Свернуть" : `Показать все (${item.children.length})`}
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
+                );
+              })() : null}
             </Pressable>
           )}
           ListFooterComponent={
@@ -166,6 +195,11 @@ const styles = StyleSheet.create({
   rootLabel: { fontSize: 14 },
   badge: { fontSize: 11, marginLeft: 8, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, overflow: "hidden", fontWeight: "700" },
   gloss: { fontSize: 15, marginTop: 2, lineHeight: 20 },
+  family: { marginTop: 10, paddingLeft: 10, borderLeftWidth: 3 },
+  familyHead: { fontSize: 11.5, fontWeight: "800", letterSpacing: 0.6, marginBottom: 4 },
+  childRow: { paddingVertical: 5 },
+  childForm: { fontSize: 16, fontWeight: "700" },
+  childGloss: { fontSize: 14 },
   kbbi: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", margin: 16, padding: 14,
     borderRadius: 24, marginBottom: 40,

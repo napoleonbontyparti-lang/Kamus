@@ -236,15 +236,25 @@ def main(lines_path, out_path):
                 s_["d"] = s_["d"][:-1] + t
             elif s_["d"].endswith("-") and t.startswith("-"):
                 s_["d"] = s_["d"] + t[1:]
+            elif re.search(r"[a-z]-$", s_["d"]) and re.match(r"[a-z]", t):
+                # перенос внутри индонезийского слова: «tan-» + «gan» (настоящий дефис повторяется в начале строки)
+                s_["d"] = s_["d"][:-1] + t
             else:
                 s_["d"] = (s_["d"] + " " + t).strip()
         prev_text = t
 
+    GLUED = re.compile(r"^(?:~\s?|[oоcс][oоcс]|°°)\s?([a-z][a-z\-]*)\s*(.*)$")
     for e in entries:
         e.pop("_cores", None)
         for s in e["senses"]:
             s["w"] = s["w"].replace("­", "").strip(",;:")
             s["d"] = clean_def(s["d"])
+            # «menanda...: ~tangani подписывать» → menandatangani
+            if s["w"].endswith(("...", "\u2026")):
+                m = GLUED.match(s["d"])
+                if m:
+                    s["w"] = s["w"].rstrip(".\u2026") + m.group(1)
+                    s["d"] = m.group(2)
     json.dump(entries, open(out_path, "w", encoding="utf-8"), ensure_ascii=False)
     print("entries:", len(entries), "senses:", sum(len(e["senses"]) for e in entries))
 

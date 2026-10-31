@@ -10,6 +10,7 @@ import {
 } from "../../lib/userdb";
 import { normalize } from "../../lib/stemmer";
 import { useTheme, soft } from "../../lib/theme";
+import { Word } from "../../components/Word";
 
 const MODES = [
   { key: "flip", icon: "repeat", title: "Повторение", sub: "интервальное (FSRS)", color: "#2E7D74" },
@@ -125,7 +126,8 @@ export default function DeckScreen() {
           <Pressable onPress={() => router.push({ pathname: "/card/[id]", params: { id: String(item.id) } })}
             style={[styles.card, { borderBottomColor: t.faint }]}>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: t.hw, fontSize: 17, fontWeight: "700" }}>{item.front}
+              <Text>
+                <Word form={item.front} root={item.root} style={{ color: t.hw, fontSize: 17, fontWeight: "700" }} />
                 {item.root && normalize(item.root) !== normalize(item.front) ?
                   <Text style={{ color: t.muted, fontWeight: "400", fontSize: 13 }}>  ← {item.root}</Text> : null}
               </Text>

@@ -9,6 +9,7 @@ import { getEntry, neighbours, search, type Entry } from "../../lib/dict";
 import { cardExists } from "../../lib/userdb";
 import { Definition, shortGloss } from "../../components/Definition";
 import { useTheme, soft } from "../../lib/theme";
+import { Word } from "../../components/Word";
 
 export default function EntryScreen() {
   const db = useSQLiteContext();
@@ -100,8 +101,9 @@ export default function EntryScreen() {
               ]}
             >
               <View style={styles.senseHead}>
-                <Text style={[isRoot ? styles.hw : styles.form, { color: t.hw }]} selectable>
-                  {s.w}{isRoot && entry.hom ? <Text style={{ fontSize: 14, color: t.muted }}> {entry.hom}</Text> : null}
+                <Text style={{ flexShrink: 1 }}>
+                  <Word form={s.w} root={isRoot ? null : entry.hw} style={[isRoot ? styles.hw : styles.form, { color: t.hw }]} />
+                  {isRoot && entry.hom ? <Text style={{ fontSize: 14, color: t.muted }}> {entry.hom}</Text> : null}
                 </Text>
                 <View style={styles.actions}>
                   <Pressable hitSlop={8} onPress={() => speak(s.w)}>

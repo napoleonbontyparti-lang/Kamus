@@ -21,6 +21,7 @@ import {
   GRADES, cardsInDeck, logPractice, previewIntervals, review, studyQueue, type CardRow,
 } from "../../lib/userdb";
 import { useTheme, soft, type Theme } from "../../lib/theme";
+import { Word } from "../../components/Word";
 
 const TITLES: Record<string, string> = {
   flip: "Повторение", "choice-ir": "ID → RU", "choice-ri": "RU → ID",
@@ -103,7 +104,7 @@ function Flip({ card, t, onDone }: { card: CardRow; t: Theme; onDone: (again: bo
   return (
     <View style={styles.flex}>
       <Pressable style={[styles.bigCard, { backgroundColor: t.card, borderColor: "transparent" }, soft(t)]} onPress={() => setShown(true)}>
-        <Text style={[styles.front, { color: t.hw }]}>{card.front}</Text>
+        <Word form={card.front} root={card.root} style={[styles.front, { color: t.hw }]} />
         <Pressable hitSlop={10} onPress={() => speak(card.front)} style={{ marginTop: 8 }}>
           <Ionicons name="volume-medium-outline" size={26} color={t.accent} />
         </Pressable>
