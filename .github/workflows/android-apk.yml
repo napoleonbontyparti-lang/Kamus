@@ -35,21 +35,11 @@ jobs:
         env:
           CI: 1
 
-      - name: Diagnose inline modules
-        working-directory: android
-        run: |
-          E="$GITHUB_WORKSPACE/node_modules/expo/android"
-          node --no-warnings --eval "require('expo/bin/autolinking')" expo-modules-autolinking mirror-kotlin-inline-modules \
-            --kotlin-files-mirror-directory "$E/src/main/java/inline/modules" \
-            --inline-modules-list-directory "$E/build/generated/expo/inlineModules" \
-            --watched-directories-serialized "[]" > /tmp/diag.txt 2>&1 || true
-          echo "pwd=$(pwd) node=$(node -v)" >> /tmp/diag.txt
-          echo "::warning title=Diag::$(sed ':a;N;$!ba;s/%/%25/g;s/\r/%0D/g;s/\n/%0A/g' /tmp/diag.txt)"
-
       - name: Build release APK
         working-directory: android
         run: |
-          echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g" >> gradle.properties
+          # с переводом строки: последняя строка gradle.properties его не имеет
+          printf '\norg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g\n' >> gradle.properties
           set -o pipefail
           ./gradlew assembleRelease --no-daemon 2>&1 | tee /tmp/gradle.log || {
             # причину ошибки — в аннотации, чтобы её было видно без скачивания логов
