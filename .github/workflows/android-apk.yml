@@ -35,6 +35,17 @@ jobs:
         env:
           CI: 1
 
+      - name: Diagnose inline modules
+        working-directory: android
+        run: |
+          E="$GITHUB_WORKSPACE/node_modules/expo/android"
+          node --no-warnings --eval "require('expo/bin/autolinking')" expo-modules-autolinking mirror-kotlin-inline-modules \
+            --kotlin-files-mirror-directory "$E/src/main/java/inline/modules" \
+            --inline-modules-list-directory "$E/build/generated/expo/inlineModules" \
+            --watched-directories-serialized "[]" > /tmp/diag.txt 2>&1 || true
+          echo "pwd=$(pwd) node=$(node -v)" >> /tmp/diag.txt
+          echo "::warning title=Diag::$(sed ':a;N;$!ba;s/%/%25/g;s/\r/%0D/g;s/\n/%0A/g' /tmp/diag.txt)"
+
       - name: Build release APK
         working-directory: android
         run: |
@@ -42,7 +53,7 @@ jobs:
           set -o pipefail
           ./gradlew assembleRelease --no-daemon 2>&1 | tee /tmp/gradle.log || {
             # причину ошибки — в аннотации, чтобы её было видно без скачивания логов
-            awk '/What went wrong/{f=1} f{print} /Try:/{if(f)exit}' /tmp/gradle.log | head -40 > /tmp/err.txt
+            { grep -B2 -A25 "autolinking failed\|Error:" /tmp/gradle.log | head -60; awk '/What went wrong/{f=1} f{print} /Try:/{if(f)exit}' /tmp/gradle.log | head -20; } > /tmp/err.txt
             [ -s /tmp/err.txt ] || grep -iE "error|exception" /tmp/gradle.log | tail -25 > /tmp/err.txt
             echo "::error title=Gradle::$(sed ':a;N;$!ba;s/%/%25/g;s/\r/%0D/g;s/\n/%0A/g' /tmp/err.txt)"
             exit 1
