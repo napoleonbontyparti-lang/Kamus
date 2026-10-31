@@ -7,6 +7,9 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: write   # чтобы публиковать APK в Releases
+
 jobs:
   build:
     runs-on: ubuntu-24.04  # Android SDK уже предустановлен
@@ -53,3 +56,16 @@ jobs:
         with:
           name: katacil-apk
           path: android/app/build/outputs/apk/release/app-release.apk
+
+      # Прямая ссылка для телефона (без zip и без входа в GitHub):
+      # https://github.com/<владелец>/<репозиторий>/releases/latest/download/KataCil.apk
+      - name: Publish release
+        run: cp android/app/build/outputs/apk/release/app-release.apk KataCil.apk
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: KataCil 1.0.${{ github.run_number }}
+          body: "Скачайте KataCil.apk на телефон Android и откройте его, чтобы установить."
+          files: KataCil.apk
+          make_latest: true
