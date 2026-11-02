@@ -15,6 +15,8 @@ import { search, type Hit } from "../lib/dict";
 import { shrinkForOcr } from "../lib/images";
 import { normalize } from "../lib/stemmer";
 import { useTheme, soft } from "../lib/theme";
+import { bumpCounter } from "../lib/settings";
+import { refreshAchievements } from "../lib/achievements";
 
 type Token = { text: string; key: string; hit?: Hit | null };
 
@@ -48,6 +50,7 @@ export default function OcrScreen() {
           return out;
         });
         setLines(tokenLines);
+        bumpCounter("ocr"); refreshAchievements(); // «Mata Elang»
         // ищем каждое уникальное слово
         const uniq = [...new Set(tokenLines.flat().map((x) => x.key).filter((k) => k.length >= 2))].slice(0, 120);
         const res: Record<string, Hit | null> = {};

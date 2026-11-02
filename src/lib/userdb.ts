@@ -39,6 +39,10 @@ export function userDb(): SQLiteDatabase {
       id INTEGER PRIMARY KEY AUTOINCREMENT, deck_id INTEGER, mode TEXT NOT NULL, ts INTEGER NOT NULL,
       total INTEGER NOT NULL, ok INTEGER NOT NULL, bad INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS sekti_log(
+      id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, amount INTEGER NOT NULL, reason TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS achievements(id TEXT PRIMARY KEY, claimed INTEGER NOT NULL DEFAULT 0);
+    CREATE TABLE IF NOT EXISTS entry_views(entry_id INTEGER PRIMARY KEY, ts INTEGER NOT NULL);
   `);
   // миграция: метка «выучено (1) / не выучено (2)» у карточки
   const cols = db.getAllSync<{ name: string }>("PRAGMA table_info(cards)").map((c) => c.name);
@@ -337,7 +341,7 @@ export function sessionsOnDay(day: string): SessionRow[] {
 
 // ───────── резервная копия ─────────
 
-const BACKUP_TABLES = ["decks", "cards", "reviews", "sessions", "history", "entry_edits", "settings"] as const;
+const BACKUP_TABLES = ["decks", "cards", "reviews", "sessions", "history", "entry_edits", "settings", "sekti_log", "achievements", "entry_views"] as const;
 
 export function exportBackup(): string {
   const db = userDb();
@@ -386,4 +390,65 @@ export function wordsToday(): number {
 export function weekScore(): number {
   return userDb().getFirstSync<{ n: number }>(
     "SELECT count(*) n FROM reviews WHERE ts >= ?", [Date.now() - 7 * 86400000])?.n ?? 0;
+}
+
+// ───────── Секти (внутренняя валюта) ─────────
+
+export function sektiBalance(): number {
+  return userDb().getFirstSync<{ n: number }>("SELECT coalesce(sum(amount), 0) n FROM sekti_log")?.n ?? 0;
+}
+
+/** amount > 0 — получено, < 0 — потрачено (пригодится для будущих функций). */
+export function addSekti(amount: number, reason: string) {
+  userDb().runSync("INSERT INTO sekti_log(ts, amount, reason) VALUES(?,?,?)", [Date.now(), amount, reason]);
+}
+
+export function spendSekti(amount: number, reason: string): boolean {
+  if (sektiBalance() < amount) return false;
+  addSekti(-amount, reason);
+  return true;
+}
+
+// ───────── данные для достижений ─────────
+
+export function markEntryViewed(entryId: number) {
+  userDb().runSync("INSERT OR REPLACE INTO entry_views(entry_id, ts) VALUES(?, ?)", [entryId, Date.now()]);
+}
+
+export function claimedLevel(id: string): number {
+  return userDb().getFirstSync<{ claimed: number }>("SELECT claimed FROM achievements WHERE id = ?", [id])?.claimed ?? 0;
+}
+
+export function setClaimedLevel(id: string, level: number) {
+  userDb().runSync("INSERT OR REPLACE INTO achievements(id, claimed) VALUES(?, ?)", [id, level]);
+}
+
+/** Все показатели одним проходом. */
+export function metrics(goalCount: number) {
+  const db = userDb();
+  const one = (sql: string, p: any[] = []) => db.getFirstSync<{ n: number }>(sql, p)?.n ?? 0;
+  // дни с ответами → самая длинная серия
+  const days = db.getAllSync<{ d: string; n: number }>(
+    "SELECT date(ts / 1000, 'unixepoch', 'localtime') d, count(DISTINCT card_id) n FROM reviews GROUP BY d ORDER BY d");
+  let best = 0, run = 0, prev = 0;
+  for (const r of days) {
+    const t = Date.parse(r.d + "T00:00:00");
+    run = prev && Math.round((t - prev) / 86400000) === 1 ? run + 1 : 1;
+    best = Math.max(best, run);
+    prev = t;
+  }
+  return {
+    cards: one("SELECT count(*) n FROM cards"),
+    learned: one("SELECT count(*) n FROM cards WHERE mark = 1"),
+    answers: one("SELECT count(*) n FROM reviews"),
+    correct: one("SELECT count(*) n FROM reviews WHERE grade >= 2"),
+    affixCorrect: one("SELECT count(*) n FROM reviews WHERE mode = 'affix' AND grade >= 3"),
+    sessions: one("SELECT count(*) n FROM sessions"),
+    flawless: one("SELECT count(*) n FROM sessions WHERE bad = 0 AND total >= 5"),
+    goalDays: days.filter((r) => r.n >= goalCount).length,
+    bestStreak: best,
+    activeDays: days.length,
+    viewed: one("SELECT count(*) n FROM entry_views"),
+    decks: one("SELECT count(*) n FROM decks"),
+  };
 }

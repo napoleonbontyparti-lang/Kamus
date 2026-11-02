@@ -5,7 +5,7 @@
  */
 import Constants from "expo-constants";
 import * as Crypto from "expo-crypto";
-import { getProfile, setProfile, getDailyGoal } from "./settings";
+import { getProfile, setProfile, getDailyGoal, getCloudState, setCloudState, bumpCounter } from "./settings";
 import { exportBackup, stats, weekScore, wordsToday } from "./userdb";
 
 type Cfg = { url: string; anonKey: string };
@@ -76,7 +76,9 @@ export async function removeFriend(code: string): Promise<void> {
 export async function leaderboard(): Promise<PublicProfile[]> {
   const p = getProfile();
   await syncProfile();
-  return rpc<PublicProfile[]>("leaderboard", { p_code: p.code });
+  const rows = await rpc<PublicProfile[]>("leaderboard", { p_code: p.code });
+  bumpCounter("friends", Math.max(0, rows.length - 1)); // для достижения «Teman Sejati»
+  return rows;
 }
 
 /** Облачная копия всех данных — для восстановления аккаунта на другом телефоне. */
@@ -84,6 +86,24 @@ export async function saveCloudBackup(): Promise<void> {
   const p = getProfile();
   await syncProfile();
   await rpc("save_backup", { p_code: p.code, p_key_hash: await keyHash(p.key), p_data: exportBackup() });
+  setCloudState({ lastAt: Date.now(), lastError: "" });
+}
+
+let running = false;
+/**
+ * Автосохранение: при сворачивании приложения (не чаще раза в 10 минут)
+ * и при запуске, если с прошлой копии прошли сутки. Ошибки (нет сети) — тихо, повторим позже.
+ */
+export async function autoCloudBackup(reason: "background" | "launch") {
+  const st = getCloudState();
+  if (!cloudReady || !st.auto || running) return;
+  const age = Date.now() - st.lastAt;
+  if (reason === "background" && age < 10 * 60 * 1000) return;
+  if (reason === "launch" && age < 24 * 3600 * 1000) return;
+  running = true;
+  try { await saveCloudBackup(); }
+  catch (e: any) { setCloudState({ lastError: String(e?.message ?? e) }); }
+  finally { running = false; }
 }
 
 export async function recoverAccount(code: string, key: string):

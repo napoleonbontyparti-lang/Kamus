@@ -7,7 +7,7 @@ import { useSQLiteContext } from "expo-sqlite";
 import * as Speech from "expo-speech";
 import { Ionicons } from "@expo/vector-icons";
 import { getEntry, neighbours, search, type Entry } from "../../lib/dict";
-import { cardExists } from "../../lib/userdb";
+import { cardExists, markEntryViewed } from "../../lib/userdb";
 import { Definition, shortGloss } from "../../components/Definition";
 import { useTheme, soft } from "../../lib/theme";
 import { Word } from "../../components/Word";
@@ -27,6 +27,7 @@ export default function EntryScreen() {
   const load = useCallback(async () => {
     const e = await getEntry(db, Number(id));
     setEntry(e);
+    if (e) markEntryViewed(e.id); // для достижения «Penjelajah Kamus»
     setNb(await neighbours(db, Number(id)));
   }, [db, id]);
 

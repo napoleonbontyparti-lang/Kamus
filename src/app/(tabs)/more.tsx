@@ -18,9 +18,10 @@ import {
 } from "../../lib/settings";
 import { shareText } from "../../lib/files";
 import { Avatar } from "../../components/Avatar";
-import { cloudReady } from "../../lib/cloud";
-import { setDailyGoal, setVibration, useDailyGoal, useProfile, useVibration } from "../../lib/settings";
+import { cloudReady, saveCloudBackup } from "../../lib/cloud";
+import { setDailyGoal, setVibration, useDailyGoal, useProfile, useVibration, useCloudState, setCloudState } from "../../lib/settings";
 import { buzz } from "../../lib/haptics";
+import { SektiBalance } from "../../components/Sekti";
 
 function DriveIcon({ size = 26 }: { size?: number }) {
   // упрощённый значок «Диск»: три цветные грани
@@ -52,6 +53,13 @@ export default function MyScreen() {
   const profile = useProfile();
   const goal = useDailyGoal();
   const vibration = useVibration();
+  const cloud = useCloudState();
+  const [saving, setSaving] = useState(false);
+  const saveNow = async () => {
+    setSaving(true);
+    try { await saveCloudBackup(); } catch (e: any) { Alert.alert("Не получилось", String(e?.message ?? e)); }
+    finally { setSaving(false); }
+  };
 
   useFocusEffect(useCallback(() => {
     setUnsaved(unsavedSince(lastBackup));
@@ -125,11 +133,28 @@ export default function MyScreen() {
           <Text style={{ color: t.text, fontSize: 19, fontWeight: "900" }} numberOfLines={1}>{profile.nick}</Text>
           <Text style={{ color: t.muted, marginTop: 2 }}>Код: <Text style={{ color: t.accent, fontWeight: "800", letterSpacing: 1 }}>{profile.code}</Text></Text>
         </View>
-        <Ionicons name="chevron-forward" size={20} color={t.muted} />
+        <SektiBalance size={16} />
+        <Ionicons name="chevron-forward" size={20} color={t.muted} style={{ marginLeft: 6 }} />
       </Pressable>
       <View style={[styles.group, { backgroundColor: t.card, marginTop: 10 }, soft(t)]}>
         <Row icon={ic("people-outline")} label="Друзья и рейтинг" value={cloudReady ? undefined : "скоро"} onPress={() => router.push("/settings/friends")} last />
       </View>
+
+      {/* облако KataCil */}
+      {cloudReady ? (
+        <>
+          <Text style={[styles.h, { color: t.muted }]}>ОБЛАКО KATACIL</Text>
+          <View style={[styles.group, { backgroundColor: t.card }, soft(t)]}>
+            <SwitchRow icon={ic("cloud-done-outline")} label="Автосохранение"
+              sub={cloud.lastAt ? `Сохранено ${fmtDate(cloud.lastAt)}${cloud.lastError ? " · последняя попытка не удалась (нет сети?)" : ""}` : "Ещё не сохранялось"}
+              value={cloud.auto} onChange={(v) => setCloudState({ auto: v })} />
+            <Row icon={ic(saving ? "hourglass-outline" : "cloud-upload-outline")} label={saving ? "Сохраняю…" : "Сохранить сейчас"} onPress={saveNow} last />
+          </View>
+          <Text style={{ color: t.muted, fontSize: 12.5, marginTop: 6, marginHorizontal: 6, lineHeight: 18 }}>
+            Копия сохраняется сама при закрытии приложения. На новом телефоне: Профиль → «Восстановить аккаунт» по коду и ключу.
+          </Text>
+        </>
+      ) : null}
 
       {/* резервная копия */}
       <View style={{ marginTop: 18 }}>

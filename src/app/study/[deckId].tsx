@@ -15,6 +15,7 @@ import { useSQLiteContext } from "expo-sqlite";
 import * as Speech from "expo-speech";
 import { buzz } from "../../lib/haptics";
 import { refreshWidget } from "../../widget/handler";
+import { refreshAchievements } from "../../lib/achievements";
 import { syncProfile } from "../../lib/cloud";
 import { Ionicons } from "@expo/vector-icons";
 import { randomGlosses } from "../../lib/dict";
@@ -89,6 +90,7 @@ export default function StudyScreen() {
       const unique = new Set(queue.map((c) => c.id)).size;
       logSession(day ? null : Number(deckId), mode, unique, score.ok, score.bad);
       refreshWidget();
+      refreshAchievements();
       syncProfile().catch(() => {}); // рейтинг друзей
     }
   }, [done]); // eslint-disable-line react-hooks/exhaustive-deps

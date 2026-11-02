@@ -110,3 +110,19 @@ export function getProfile(): Profile {
 }
 export const setProfile = (patch: Partial<Profile>) => write("profile", { ...getProfile(), ...patch });
 export const useProfile = () => useSyncExternalStore(subscribe, getProfile);
+
+// ───────── автосохранение в облако KataCil ─────────
+
+export type CloudState = { auto: boolean; lastAt: number; lastError: string };
+export const getCloudState = () => read<CloudState>("cloud", { auto: true, lastAt: 0, lastError: "" });
+export const setCloudState = (patch: Partial<CloudState>) => write("cloud", { ...getCloudState(), ...patch });
+export const useCloudState = () => useSyncExternalStore(subscribe, getCloudState);
+
+// ───────── счётчики для достижений ─────────
+
+export type Counters = { ocr: number; friends: number };
+export const getCounters = () => read<Counters>("counters", { ocr: 0, friends: 0 });
+export const bumpCounter = (k: keyof Counters, value?: number) => {
+  const c = getCounters();
+  write("counters", { ...c, [k]: value ?? c[k] + 1 });
+};

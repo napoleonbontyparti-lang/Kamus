@@ -1,7 +1,7 @@
 import { Suspense, useEffect } from "react";
 import { AppState } from "react-native";
 import { refreshWidget } from "../widget/handler";
-import { syncProfile } from "../lib/cloud";
+import { syncProfile, autoCloudBackup } from "../lib/cloud";
 import { ActivityIndicator, View } from "react-native";
 import { Stack } from "expo-router";
 import { SQLiteProvider, deleteDatabaseSync } from "expo-sqlite";
@@ -53,8 +53,9 @@ export default function RootLayout() {
   // при сворачивании приложения — обновить виджет и рейтинг
   useEffect(() => {
     const sub = AppState.addEventListener("change", (s) => {
-      if (s === "background") { refreshWidget(); syncProfile().catch(() => {}); }
+      if (s === "background") { refreshWidget(); syncProfile().catch(() => {}); autoCloudBackup("background"); }
     });
+    autoCloudBackup("launch");
     return () => sub.remove();
   }, []);
   if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: t.bg }} />;
