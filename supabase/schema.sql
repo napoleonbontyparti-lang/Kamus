@@ -127,3 +127,8 @@ grant execute on function public.remove_friend(text, text, text) to anon;
 grant execute on function public.leaderboard(text) to anon;
 grant execute on function public.save_backup(text, text, text) to anon;
 grant execute on function public.recover(text, text) to anon;
+
+-- сообщить API, что появились новые функции
+notify pgrst, 'reload schema';
+
+select 'KataCil: схема установлена' as result;
