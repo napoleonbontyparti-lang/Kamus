@@ -30,6 +30,16 @@ jobs:
       - name: Check Android SDK
         run: echo "ANDROID_HOME=$ANDROID_HOME" && ls "$ANDROID_HOME"
 
+      - name: Check KataCil server (Supabase)
+        continue-on-error: true
+        run: |
+          URL=$(node -p "require('./app.json').expo.extra?.supabase?.url || ''")
+          KEY=$(node -p "require('./app.json').expo.extra?.supabase?.anonKey || ''")
+          [ -z "$URL" ] && { echo "::warning title=Server::сервер не настроен"; exit 0; }
+          OUT=$(curl -s -X POST "$URL/rest/v1/rpc/find_profile" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" \
+                -H "Content-Type: application/json" -d '{"p_code":"TEST-TEST"}' -w " HTTP:%{http_code}")
+          echo "::warning title=Server::$OUT"
+
       - name: Install dependencies
         run: npm ci
 

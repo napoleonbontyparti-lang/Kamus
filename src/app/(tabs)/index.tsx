@@ -9,6 +9,8 @@ import { search, type Hit } from "../../lib/dict";
 import { addHistory, clearHistory, recentHistory } from "../../lib/userdb";
 import { useTheme, soft } from "../../lib/theme";
 import { Word } from "../../components/Word";
+import { Sheet } from "../../components/Sheet";
+import { pickImage } from "../../lib/images";
 
 const HOW_LABEL: Record<Hit["how"], string> = { exact: "", prefix: "", stem: "разбор", ru: "" };
 
@@ -22,6 +24,11 @@ export default function SearchScreen() {
   const [history, setHistory] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [photoMenu, setPhotoMenu] = useState(false);
+  const photo = async (src: "camera" | "library") => {
+    const uri = await pickImage(src);
+    if (uri) router.push({ pathname: "/ocr", params: { uri } });
+  };
   const reqId = useRef(0);
 
   useEffect(() => { if (params.q) setQ(params.q); }, [params.q]);
@@ -70,7 +77,14 @@ export default function SearchScreen() {
             <Ionicons name="close-circle" size={20} color={t.muted} />
           </Pressable>
         ) : null}
+        <Pressable onPress={() => setPhotoMenu(true)} hitSlop={10} style={{ marginLeft: 12 }} accessibilityLabel="Поиск по фото">
+          <Ionicons name="camera-outline" size={23} color={t.accent} />
+        </Pressable>
       </View>
+      <Sheet visible={photoMenu} title="Поиск по фото" onClose={() => setPhotoMenu(false)} items={[
+        { label: "Сфотографировать текст", icon: <Ionicons name="camera-outline" size={20} color={t.text} />, onPress: () => photo("camera") },
+        { label: "Выбрать из галереи", icon: <Ionicons name="images-outline" size={20} color={t.text} />, onPress: () => photo("library") },
+      ]} />
 
       {!q.trim() ? (
         <FlatList

@@ -51,10 +51,10 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="more"
         options={{
-          title: "Мой",
-          headerTitle: "Моя страница",
+          title: "Настройки",
+          headerTitle: "Настройки",
           headerTitleAlign: "center",
-          tabBarIcon: ({ color, size }) => <Ionicons name="paw-outline" color={color as string} size={size} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" color={color as string} size={size} />,
         }}
       />
     </Tabs>

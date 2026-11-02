@@ -372,3 +372,18 @@ export function unsavedSince(ts: number): number {
   const r = db.getFirstSync<{ n: number }>("SELECT count(*) n FROM sessions WHERE ts > ?", [ts])?.n ?? 0;
   return c + r;
 }
+
+// ───────── ежедневная цель и рейтинг ─────────
+
+/** Сколько разных слов повторено/изучено сегодня (любой режим). */
+export function wordsToday(): number {
+  const start = new Date(); start.setHours(0, 0, 0, 0);
+  return userDb().getFirstSync<{ n: number }>(
+    "SELECT count(DISTINCT card_id) n FROM reviews WHERE ts >= ?", [start.getTime()])?.n ?? 0;
+}
+
+/** Ответов за последние 7 дней — очки для рейтинга среди друзей. */
+export function weekScore(): number {
+  return userDb().getFirstSync<{ n: number }>(
+    "SELECT count(*) n FROM reviews WHERE ts >= ?", [Date.now() - 7 * 86400000])?.n ?? 0;
+}

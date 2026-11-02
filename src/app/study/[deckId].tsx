@@ -13,7 +13,9 @@ import { Text, TextInput, Kancil } from "../../components/ui";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import * as Speech from "expo-speech";
-import * as Haptics from "expo-haptics";
+import { buzz } from "../../lib/haptics";
+import { refreshWidget } from "../../widget/handler";
+import { syncProfile } from "../../lib/cloud";
 import { Ionicons } from "@expo/vector-icons";
 import { randomGlosses } from "../../lib/dict";
 import { normalize } from "../../lib/stemmer";
@@ -86,6 +88,8 @@ export default function StudyScreen() {
       logged.current = true;
       const unique = new Set(queue.map((c) => c.id)).size;
       logSession(day ? null : Number(deckId), mode, unique, score.ok, score.bad);
+      refreshWidget();
+      syncProfile().catch(() => {}); // рейтинг друзей
     }
   }, [done]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -192,7 +196,7 @@ function Choice({ card, pool, reverse, t, onDone }: {
     if (picked) return;
     setPicked(o);
     const ok = o === right;
-    Haptics.notificationAsync(ok ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error);
+    buzz(ok ? "success" : "error");
     setTimeout(() => onDone(ok), ok ? 600 : 1500);
   };
 
@@ -231,7 +235,7 @@ function Write({ card, affix, t, onDone }: { card: CardRow; affix: boolean; t: T
     if (result !== null) return onDone(result);
     const ok = normalize(val) === normalize(answer) || normalize(val) === normalize(card.front);
     setResult(ok);
-    Haptics.notificationAsync(ok ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error);
+    buzz(ok ? "success" : "error");
     speak(answer);
   };
 
@@ -291,7 +295,7 @@ function TrueFalse({ card, pool, t, onDone }: { card: CardRow; pool: { w: string
     if (res !== null) return;
     const ok = says === pair.truth;
     setRes(ok);
-    Haptics.notificationAsync(ok ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error);
+    buzz(ok ? "success" : "error");
     setTimeout(() => onDone(ok), ok ? 450 : 1600);
   };
 

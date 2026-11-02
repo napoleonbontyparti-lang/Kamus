@@ -3,7 +3,9 @@ import { FlatList, Pressable, StyleSheet, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Text, TextInput, KancilSays } from "../../components/ui";
-import { createDeck, listDecks, stats, type Deck } from "../../lib/userdb";
+import { createDeck, listDecks, stats, wordsToday, type Deck } from "../../lib/userdb";
+import { useDailyGoal } from "../../lib/settings";
+import { BlueFlame } from "../../components/BlueFlame";
 import { useTheme, soft } from "../../lib/theme";
 
 const DECK_COLORS = ["#2E7D74", "#D9962B", "#C0605A", "#5B7FB5", "#8A6BB0", "#3E9B5F"];
@@ -21,8 +23,10 @@ export default function DecksScreen() {
   const [st, setSt] = useState({ today: 0, cards: 0, mature: 0, streak: 0, due: 0 });
   const [name, setName] = useState("");
   const [adding, setAdding] = useState(false);
+  const [today, setToday] = useState(0);
+  const goal = useDailyGoal();
 
-  const refresh = useCallback(() => { setDecks(listDecks()); setSt(stats()); }, []);
+  const refresh = useCallback(() => { setDecks(listDecks()); setSt(stats()); setToday(wordsToday()); }, []);
   useFocusEffect(refresh);
 
   const create = () => {
@@ -31,8 +35,9 @@ export default function DecksScreen() {
     setName(""); setAdding(false); refresh();
   };
 
-  const mood = st.cards === 0 ? "hello" : st.due > 0 ? "read" : st.today > 0 ? "yay" : "sleep";
-  const title = st.cards === 0 ? "Ayo belajar!"
+  const goalDone = goal.enabled && today >= goal.count;
+  const mood = st.cards === 0 ? "hello" : goalDone ? "yay" : st.due > 0 ? "read" : st.today > 0 ? "yay" : "sleep";
+  const title = st.cards === 0 ? "Ayo belajar!" : goalDone ? "Цель на сегодня выполнена!"
     : st.due > 0 ? `${st.due} ${plural(st.due, "слово ждёт", "слова ждут", "слов ждут")} повторения`
     : st.today > 0 ? "Bagus sekali!" : "Всё повторено";
   const text = st.cards === 0
@@ -50,8 +55,19 @@ export default function DecksScreen() {
       ListHeaderComponent={
         <View>
           <KancilSays mood={mood} size={118} title={title} text={text} />
+          {goal.enabled ? (
+            <View style={[styles.goal, { backgroundColor: t.card }, soft(t)]}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                <Text style={{ color: t.text, fontWeight: "800" }}>Цель на сегодня</Text>
+                <Text style={{ color: goalDone ? t.green : t.accent, fontWeight: "900" }}>{Math.min(today, goal.count)} / {goal.count}</Text>
+              </View>
+              <View style={[styles.bar, { backgroundColor: t.faint }]}>
+                <View style={{ width: `${Math.min(100, (today / goal.count) * 100)}%`, height: "100%", borderRadius: 5, backgroundColor: goalDone ? t.green : t.accent }} />
+              </View>
+            </View>
+          ) : null}
           <View style={styles.stats}>
-            <Stat icon="flame" color={t.amber} bg={t.amberSoft} n={st.streak} label={plural(st.streak, "день подряд", "дня подряд", "дней подряд")} />
+            <Stat flame={st.streak > 0} icon="flame" color={t.amber} bg={t.amberSoft} n={st.streak} label={plural(st.streak, "день подряд", "дня подряд", "дней подряд")} />
             <Stat icon="albums" color={t.accent} bg={t.accentSoft} n={st.cards} label="карточек" />
             <Stat icon="leaf" color={t.green} bg={t.greenSoft} n={st.mature} label="выучено" />
           </View>
@@ -100,11 +116,13 @@ export default function DecksScreen() {
   );
 }
 
-function Stat({ n, label, icon, color, bg }: { n: number; label: string; icon: any; color: string; bg: string }) {
+function Stat({ n, label, icon, color, bg, flame }: { n: number; label: string; icon: any; color: string; bg: string; flame?: boolean }) {
   const t = useTheme();
   return (
     <View style={[styles.stat, { backgroundColor: t.card }, soft(t)]}>
-      <View style={[styles.statIcon, { backgroundColor: bg }]}><Ionicons name={icon} size={18} color={color} /></View>
+      <View style={[styles.statIcon, { backgroundColor: flame !== undefined ? "#DCEBFF" : bg }]}>
+        {flame !== undefined ? <BlueFlame size={20} lit={flame} /> : <Ionicons name={icon} size={18} color={color} />}
+      </View>
       <Text style={{ fontSize: 22, fontWeight: "900", color: t.text, marginTop: 4 }}>{n}</Text>
       <Text style={{ fontSize: 11.5, color: t.muted, textAlign: "center" }}>{label}</Text>
     </View>
@@ -113,6 +131,8 @@ function Stat({ n, label, icon, color, bg }: { n: number; label: string; icon: a
 
 const styles = StyleSheet.create({
   stats: { flexDirection: "row", gap: 10, marginTop: 12, marginBottom: 16 },
+  goal: { borderRadius: 18, padding: 14, marginTop: 12 },
+  bar: { height: 10, borderRadius: 5, marginTop: 8, overflow: "hidden" },
   stat: { flex: 1, alignItems: "center", paddingVertical: 12, borderRadius: 20 },
   statIcon: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
   deck: { flexDirection: "row", alignItems: "center", gap: 10, padding: 14, borderRadius: 22, marginBottom: 12 },

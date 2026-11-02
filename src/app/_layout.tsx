@@ -1,4 +1,7 @@
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
+import { AppState } from "react-native";
+import { refreshWidget } from "../widget/handler";
+import { syncProfile } from "../lib/cloud";
 import { ActivityIndicator, View } from "react-native";
 import { Stack } from "expo-router";
 import { SQLiteProvider, deleteDatabaseSync } from "expo-sqlite";
@@ -47,6 +50,13 @@ export default function RootLayout() {
   });
   userDb(); // создать таблицы пользователя при старте
   cleanupOldDictionaries();
+  // при сворачивании приложения — обновить виджет и рейтинг
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (s) => {
+      if (s === "background") { refreshWidget(); syncProfile().catch(() => {}); }
+    });
+    return () => sub.remove();
+  }, []);
   if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: t.bg }} />;
 
   return (
@@ -76,6 +86,9 @@ export default function RootLayout() {
           <Stack.Screen name="study/[deckId]" options={{ title: "Тренировка" }} />
           <Stack.Screen name="card/[id]" options={{ title: "Карточка", presentation: "modal" }} />
           <Stack.Screen name="edit-entry/[id]" options={{ title: "Правка статьи", presentation: "modal" }} />
+          <Stack.Screen name="ocr" options={{ title: "Поиск по фото" }} />
+          <Stack.Screen name="settings/profile" options={{ title: "Профиль" }} />
+          <Stack.Screen name="settings/friends" options={{ title: "Друзья и рейтинг" }} />
           <Stack.Screen name="settings/affix" options={{ title: "Цветные аффиксы" }} />
           <Stack.Screen name="settings/about" options={{ title: "О словаре" }} />
           <Stack.Screen name="settings/edits" options={{ title: "Исправленные статьи" }} />

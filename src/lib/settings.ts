@@ -1,5 +1,6 @@
 /** Настройки пользователя (таблица settings в user.db) с подпиской для React. */
 import { useSyncExternalStore } from "react";
+import * as Crypto from "expo-crypto";
 import { userDb } from "./userdb";
 
 const listeners = new Set<() => void>();
@@ -63,3 +64,49 @@ export const useAffixColors = () => useSyncExternalStore(subscribe, getAffixColo
 export const getLastBackup = () => read<number>("lastBackup", 0);
 export const setLastBackup = (ts: number) => write("lastBackup", ts);
 export const useLastBackup = () => useSyncExternalStore(subscribe, getLastBackup);
+
+// ───────── вибрация (по умолчанию выключена) ─────────
+
+export const getVibration = () => read<boolean>("vibration", false);
+export const setVibration = (v: boolean) => write("vibration", v);
+export const useVibration = () => useSyncExternalStore(subscribe, getVibration);
+
+// ───────── ежедневная цель ─────────
+
+export type DailyGoal = { enabled: boolean; count: number };
+export const DEFAULT_GOAL: DailyGoal = { enabled: false, count: 20 };
+export const getDailyGoal = () => read<DailyGoal>("dailyGoal", DEFAULT_GOAL);
+export const setDailyGoal = (patch: Partial<DailyGoal>) => write("dailyGoal", { ...getDailyGoal(), ...patch });
+export const useDailyGoal = () => useSyncExternalStore(subscribe, getDailyGoal);
+
+// ───────── профиль ─────────
+
+export type Profile = {
+  nick: string;
+  code: string;        // уникальный код для друзей, например 7F3Q-9AKD
+  key: string;         // ключ восстановления (секрет, показывается пользователю)
+  avatar: string;      // data:image/jpeg;base64,… (маленькая квадратная картинка) или ""
+  registered: boolean; // профиль уже есть на сервере
+};
+
+const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // без 0/O и 1/I
+function randomString(n: number): string {
+  const bytes = Crypto.getRandomBytes(n);
+  let out = "";
+  for (let i = 0; i < n; i++) out += ALPHABET[(bytes[i] || Math.floor(Math.random() * 256)) % ALPHABET.length];
+  return out;
+}
+
+export const newCode = () => { const r = randomString(8); return `${r.slice(0, 4)}-${r.slice(4)}`; };
+export const newKey = () => { const r = randomString(16); return r.match(/.{4}/g)!.join("-"); };
+
+export function getProfile(): Profile {
+  const p = read<Profile | null>("profile", null);
+  if (p && p.code) return p;
+  // первый запуск: создаём профиль
+  const fresh: Profile = { nick: "Si Kancil", code: newCode(), key: newKey(), avatar: "", registered: false };
+  write("profile", fresh);
+  return fresh;
+}
+export const setProfile = (patch: Partial<Profile>) => write("profile", { ...getProfile(), ...patch });
+export const useProfile = () => useSyncExternalStore(subscribe, getProfile);

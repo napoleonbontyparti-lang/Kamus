@@ -38,3 +38,20 @@ assert(cardsOnDay(today).every((x) => x.mark === 1), "метки восстан�
 let bad = false; try { importBackup('{"foo":1}'); } catch { bad = true; }
 assert(bad, "чужой файл отклоняется");
 console.log(segment("menandatangani", "tanda").map((s) => s.k + ":" + s.t).join(" "));
+
+// профиль, цель, вибрация
+import { getProfile, setProfile, getDailyGoal, setDailyGoal, getVibration } from "../src/lib/settings";
+import { wordsToday, weekScore, review, studyQueue } from "../src/lib/userdb";
+const p = getProfile();
+assert(/^[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(p.code) && /^([A-Z2-9]{4}-){3}[A-Z2-9]{4}$/.test(p.key), `код ${p.code} и ключ созданы`);
+assert(getProfile().code === p.code, "код постоянный");
+setProfile({ nick: "Veronika" });
+assert(getProfile().nick === "Veronika" && getProfile().code === p.code, "ник меняется, код остаётся");
+assert(getVibration() === false, "вибрация выключена по умолчанию");
+assert(getDailyGoal().enabled === false && getDailyGoal().count === 20, "цель выключена, 20 слов по умолчанию");
+setDailyGoal({ enabled: true, count: 10 });
+const before = wordsToday();
+const q = studyQueue(listDecks()[0].id);
+review(q[0], 3); review(q[0], 3);
+assert(wordsToday() === before + 1, "в цель считаются разные слова, а не ответы");
+assert(weekScore() >= 2, "очки рейтинга за неделю");

@@ -1,6 +1,6 @@
-/** «Мой» — страница пользователя (как в VoCat): резервная копия на Google Диске и настройки. */
+/** «Настройки»: профиль, друзья, резервная копия на Google Диске, цель, вибрация, тема. */
 import { useCallback, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import * as DocumentPicker from "expo-document-picker";
@@ -17,6 +17,10 @@ import {
   THEME_LABELS, reloadSettings, setLastBackup, setThemeMode, useAffixColors, useLastBackup, useThemeMode, type ThemeMode,
 } from "../../lib/settings";
 import { shareText } from "../../lib/files";
+import { Avatar } from "../../components/Avatar";
+import { cloudReady } from "../../lib/cloud";
+import { setDailyGoal, setVibration, useDailyGoal, useProfile, useVibration } from "../../lib/settings";
+import { buzz } from "../../lib/haptics";
 
 function DriveIcon({ size = 26 }: { size?: number }) {
   // упрощённый значок «Диск»: три цветные грани
@@ -44,6 +48,10 @@ export default function MyScreen() {
   const [edits, setEdits] = useState(0);
   const [entries, setEntries] = useState("");
   const [themeSheet, setThemeSheet] = useState(false);
+  const [goalSheet, setGoalSheet] = useState(false);
+  const profile = useProfile();
+  const goal = useDailyGoal();
+  const vibration = useVibration();
 
   useFocusEffect(useCallback(() => {
     setUnsaved(unsavedSince(lastBackup));
@@ -97,9 +105,32 @@ export default function MyScreen() {
     </Pressable>
   );
   const ic = (name: any) => <Ionicons name={name} size={22} color={t.text} />;
+  const SwitchRow = ({ icon, label, sub, value, onChange, last }: { icon: React.ReactNode; label: string; sub?: string; value: boolean; onChange: (v: boolean) => void; last?: boolean }) => (
+    <View style={[styles.row, { borderBottomColor: t.faint, borderBottomWidth: last ? 0 : StyleSheet.hairlineWidth }]}>
+      <View style={styles.rowIcon}>{icon}</View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.rowLabel, { color: t.text }]}>{label}</Text>
+        {sub ? <Text style={{ color: t.muted, fontSize: 13, marginTop: 1 }}>{sub}</Text> : null}
+      </View>
+      <Switch value={value} onValueChange={onChange} trackColor={{ true: t.accent, false: t.faint }} thumbColor="#fff" />
+    </View>
+  );
 
   return (
     <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={{ padding: 14, paddingBottom: 40 }}>
+      {/* профиль */}
+      <Pressable onPress={() => router.push("/settings/profile")} style={[styles.profile, { backgroundColor: t.card }, soft(t)]}>
+        <Avatar uri={profile.avatar} size={60} />
+        <View style={{ flex: 1, marginLeft: 14 }}>
+          <Text style={{ color: t.text, fontSize: 19, fontWeight: "900" }} numberOfLines={1}>{profile.nick}</Text>
+          <Text style={{ color: t.muted, marginTop: 2 }}>Код: <Text style={{ color: t.accent, fontWeight: "800", letterSpacing: 1 }}>{profile.code}</Text></Text>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={t.muted} />
+      </Pressable>
+      <View style={[styles.group, { backgroundColor: t.card, marginTop: 10 }, soft(t)]}>
+        <Row icon={ic("people-outline")} label="Друзья и рейтинг" value={cloudReady ? undefined : "скоро"} onPress={() => router.push("/settings/friends")} last />
+      </View>
+
       {/* резервная копия */}
       <View style={{ marginTop: 18 }}>
         <Kancil mood="hello" size={70} style={styles.peek} />
@@ -137,6 +168,18 @@ export default function MyScreen() {
       </View>
 
       {/* настройки */}
+      <Text style={[styles.h, { color: t.muted }]}>ОБУЧЕНИЕ</Text>
+      <View style={[styles.group, { backgroundColor: t.card }, soft(t)]}>
+        <SwitchRow icon={ic("flag-outline")} label="Ежедневная цель"
+          sub={goal.enabled ? `${goal.count} слов в день — нажмите, чтобы изменить` : "Сколько слов повторять или учить каждый день"}
+          value={goal.enabled} onChange={(v) => { setDailyGoal({ enabled: v }); if (v) setGoalSheet(true); }} />
+        {goal.enabled ? (
+          <Row icon={<View />} label="Слов в день" value={String(goal.count)} onPress={() => setGoalSheet(true)} />
+        ) : null}
+        <SwitchRow icon={ic("phone-portrait-outline")} label="Вибрация" sub="При ответах в тренировках"
+          value={vibration} onChange={(v) => { setVibration(v); if (v) buzz("success"); }} last />
+      </View>
+
       <Text style={[styles.h, { color: t.muted }]}>ОФОРМЛЕНИЕ</Text>
       <View style={[styles.group, { backgroundColor: t.card }, soft(t)]}>
         <Row icon={ic(themeMode === "dark" ? "moon-outline" : "sunny-outline")} label="Тема" value={THEME_LABELS[themeMode]} onPress={() => setThemeSheet(true)} />
@@ -156,6 +199,16 @@ export default function MyScreen() {
       </View>
 
       <Sheet
+        visible={goalSheet}
+        title="Ежедневная цель: слов в день"
+        onClose={() => setGoalSheet(false)}
+        items={[5, 10, 15, 20, 30, 50, 100].map((n) => ({
+          label: `${n} слов${n === goal.count ? "  ✓" : ""}`,
+          color: n === goal.count ? t.accent : undefined,
+          onPress: () => setDailyGoal({ enabled: true, count: n }),
+        }))}
+      />
+      <Sheet
         visible={themeSheet}
         title="Тема"
         onClose={() => setThemeSheet(false)}
@@ -171,6 +224,7 @@ export default function MyScreen() {
 }
 
 const styles = StyleSheet.create({
+  profile: { flexDirection: "row", alignItems: "center", borderRadius: 22, padding: 14 },
   peek: { position: "absolute", right: 14, top: -46, zIndex: 0 },
   card: { borderRadius: 22, padding: 16, zIndex: 1 },
   btn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 12, borderRadius: 16 },
