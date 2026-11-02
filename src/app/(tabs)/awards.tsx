@@ -9,7 +9,8 @@ import { Laurel } from "../../components/Laurel";
 import { SektiBalance, SektiIcon } from "../../components/Sekti";
 import { BlueFlame } from "../../components/BlueFlame";
 import { useTheme, soft } from "../../lib/theme";
-import { claim, claimableCount, refreshAchievements, useAchievements, type AchievementState } from "../../lib/achievements";
+import { TIER_REWARDS, claim, claimableCount, refreshAchievements, useAchievements, type AchievementState } from "../../lib/achievements";
+import { SEKTI_BLUE } from "../../components/Sekti";
 import { metrics } from "../../lib/userdb";
 import { getDailyGoal } from "../../lib/settings";
 import { buzz } from "../../lib/haptics";
@@ -65,9 +66,9 @@ export default function AwardsScreen() {
             <Text style={{ color: t.muted, marginTop: 2 }}>{reward?.name}</Text>
             <View style={{ flexDirection: "row", alignItems: "center", marginTop: 12 }}>
               <SektiIcon size={34} />
-              <Text style={{ color: t.amber, fontSize: 30, fontWeight: "900", marginLeft: 6 }}>+{reward?.amount}</Text>
+              <Text style={{ color: SEKTI_BLUE, fontSize: 30, fontWeight: "900", marginLeft: 6 }}>+{reward?.amount}</Text>
             </View>
-            <Text style={{ color: t.muted, marginTop: 4 }}>Секти</Text>
+            <Text style={{ color: t.muted, marginTop: 4 }}>Секти зачислены на ваш счёт</Text>
             <Pressable onPress={() => setReward(null)} style={[styles.ok, { backgroundColor: t.accent }]}>
               <Text style={{ color: "#fff", fontWeight: "800" }}>Terima kasih!</Text>
             </Pressable>
@@ -84,7 +85,7 @@ function AchievementCard({ a, onClaim }: { a: AchievementState; onClaim: () => v
   const level = Math.min(a.claimed + 1, a.tiers.length);
   const shown = Math.min(a.value, a.target);
   return (
-    <View style={[styles.card, { backgroundColor: t.card, borderColor: a.claimable ? t.amber : "transparent" }, soft(t)]}>
+    <View style={[styles.card, { backgroundColor: t.card, borderColor: a.claimable ? SEKTI_BLUE : "transparent" }, soft(t)]}>
       <View style={{ alignItems: "center", width: 84 }}>
         <Laurel color={a.color} active={a.reached > 0} icon={a.icon} size={76} />
         <View style={[styles.level, { backgroundColor: t.faint }]}>
@@ -93,24 +94,25 @@ function AchievementCard({ a, onClaim }: { a: AchievementState; onClaim: () => v
       </View>
       <View style={{ flex: 1, marginLeft: 10 }}>
         <Text style={{ color: t.text, fontSize: 18, fontWeight: "900" }}>{a.name}</Text>
-        <Text style={{ color: t.muted, fontSize: 12.5, fontStyle: "italic" }}>«{a.meaning}»</Text>
-        <Text style={{ color: t.text, fontSize: 13.5, marginTop: 2 }}>{a.desc}</Text>
+        <Text style={{ color: t.text, fontSize: 14, marginTop: 2, fontWeight: "600" }}>{a.caption.replace("{n}", String(a.target))}</Text>
+        <Text style={{ color: t.muted, fontSize: 12.5, marginTop: 1 }}>{a.ru}</Text>
         <View style={[styles.bar, { backgroundColor: t.faint }]}>
           <View style={{ width: `${Math.min(100, (shown / a.target) * 100)}%`, height: "100%", backgroundColor: a.color, borderRadius: 4 }} />
         </View>
         <Text style={{ color: a.color, fontWeight: "900", alignSelf: "flex-end", marginTop: 3 }}>{shown}/{a.target}</Text>
         <View style={styles.tiers}>
-          {a.rewards.map((r, i) => (
+          {TIER_REWARDS.map((r, i) => (
             <View key={i} style={styles.tier}>
               <SektiIcon size={17} dim={i >= a.reached} />
-              <Text style={{ color: i < a.claimed ? t.muted : i < a.reached ? t.amber : t.muted, fontWeight: "800", fontSize: 13,
+              <Text style={{ color: i < a.claimed ? t.muted : i < a.reached ? SEKTI_BLUE : t.muted, fontWeight: "800", fontSize: 13,
                 textDecorationLine: i < a.claimed ? "line-through" : "none" }}> {r}</Text>
             </View>
           ))}
         </View>
         {a.claimable > 0 ? (
-          <Pressable onPress={onClaim} style={[styles.get, { backgroundColor: "#F4C152" }]}>
-            <Text style={{ color: "#3A2A1E", fontWeight: "900", fontSize: 16 }}>Ambil!  +{a.claimable}</Text>
+          <Pressable onPress={onClaim} style={[styles.get, { backgroundColor: SEKTI_BLUE }]}>
+            <SektiIcon size={18} white />
+            <Text style={{ color: "#fff", fontWeight: "900", fontSize: 16 }}>  Получить +{a.claimable}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -158,7 +160,7 @@ const styles = StyleSheet.create({
   bar: { height: 8, borderRadius: 4, marginTop: 8, overflow: "hidden" },
   tiers: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 4 },
   tier: { flexDirection: "row", alignItems: "center" },
-  get: { alignSelf: "flex-end", marginTop: 8, paddingHorizontal: 18, paddingVertical: 9, borderRadius: 20 },
+  get: { flexDirection: "row", alignItems: "center", alignSelf: "flex-end", marginTop: 8, paddingHorizontal: 18, paddingVertical: 9, borderRadius: 20 },
   backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", alignItems: "center", justifyContent: "center" },
   rewardBox: { width: "80%", borderRadius: 28, padding: 22, alignItems: "center" },
   ok: { marginTop: 18, paddingHorizontal: 28, paddingVertical: 12, borderRadius: 20 },

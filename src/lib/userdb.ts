@@ -43,6 +43,7 @@ export function userDb(): SQLiteDatabase {
       id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, amount INTEGER NOT NULL, reason TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS achievements(id TEXT PRIMARY KEY, claimed INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS entry_views(entry_id INTEGER PRIMARY KEY, ts INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS visits(day TEXT PRIMARY KEY);
   `);
   // миграция: метка «выучено (1) / не выучено (2)» у карточки
   const cols = db.getAllSync<{ name: string }>("PRAGMA table_info(cards)").map((c) => c.name);
@@ -341,7 +342,7 @@ export function sessionsOnDay(day: string): SessionRow[] {
 
 // ───────── резервная копия ─────────
 
-const BACKUP_TABLES = ["decks", "cards", "reviews", "sessions", "history", "entry_edits", "settings", "sekti_log", "achievements", "entry_views"] as const;
+const BACKUP_TABLES = ["decks", "cards", "reviews", "sessions", "history", "entry_edits", "settings", "sekti_log", "achievements", "entry_views", "visits"] as const;
 
 export function exportBackup(): string {
   const db = userDb();
@@ -411,6 +412,11 @@ export function spendSekti(amount: number, reason: string): boolean {
 
 // ───────── данные для достижений ─────────
 
+/** Отметить, что сегодня заходили в приложение (для «Rajin Datang»). */
+export function markVisit() {
+  userDb().runSync("INSERT OR IGNORE INTO visits(day) VALUES(?)", [dayKey(new Date())]);
+}
+
 export function markEntryViewed(entryId: number) {
   userDb().runSync("INSERT OR REPLACE INTO entry_views(entry_id, ts) VALUES(?, ?)", [entryId, Date.now()]);
 }
@@ -450,5 +456,6 @@ export function metrics(goalCount: number) {
     activeDays: days.length,
     viewed: one("SELECT count(*) n FROM entry_views"),
     decks: one("SELECT count(*) n FROM decks"),
+    visitDays: one("SELECT count(*) n FROM visits"),
   };
 }

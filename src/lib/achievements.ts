@@ -1,6 +1,6 @@
 /**
- * Достижения (Pencapaian): у каждого несколько уровней, за каждый уровень — Секти.
- * Названия — милые индонезийские, описание — по-русски.
+ * Достижения (Pencapaian): у каждого пять уровней, за уровни — 10, 20, 30, 50 и 100 Секти.
+ * Названия и подписи — милые индонезийские, ниже — перевод по-русски.
  */
 import { useSyncExternalStore } from "react";
 import { addSekti, claimedLevel, metrics, setClaimedLevel } from "./userdb";
@@ -8,37 +8,43 @@ import { getCounters, getDailyGoal } from "./settings";
 import type { AchIcon } from "../components/Laurel";
 
 export type Metric =
-  | "cards" | "learned" | "correct" | "affixCorrect" | "sessions" | "flawless"
-  | "goalDays" | "bestStreak" | "viewed" | "ocr" | "friends";
+  | "cards" | "learned" | "correct" | "affixCorrect" | "flawless"
+  | "goalDays" | "bestStreak" | "visitDays" | "viewed" | "ocr" | "friends";
 
 export type AchievementDef = {
-  id: string; name: string; meaning: string; desc: string; metric: Metric;
-  tiers: number[]; rewards: number[]; color: string; icon: AchIcon;
+  id: string;
+  name: string;      // название по-индонезийски
+  caption: string;   // милая подпись по-индонезийски, {n} — цель уровня
+  ru: string;        // перевод/пояснение по-русски
+  metric: Metric; tiers: number[]; color: string; icon: AchIcon;
 };
 
+/** Награда за уровни 1–5 (Секти). */
+export const TIER_REWARDS = [10, 20, 30, 50, 100];
+
 export const ACHIEVEMENTS: AchievementDef[] = [
-  { id: "api-biru", name: "Api Biru", meaning: "синий огонь", desc: "Занимайтесь несколько дней подряд",
-    metric: "bestStreak", tiers: [3, 7, 30, 100], rewards: [10, 30, 100, 250], color: "#2F80ED", icon: "api-biru" },
-  { id: "si-rajin", name: "Si Rajin", meaning: "старательный", desc: "Выполняйте ежедневную цель",
-    metric: "goalDays", tiers: [1, 7, 30, 100], rewards: [5, 25, 80, 200], color: "#3E9B5F", icon: "gamelan" },
-  { id: "pengumpul-kata", name: "Pengumpul Kata", meaning: "собиратель слов", desc: "Добавляйте слова в карточки",
-    metric: "cards", tiers: [10, 50, 200, 500, 1000], rewards: [5, 15, 40, 80, 150], color: "#D9962B", icon: "songket" },
-  { id: "kancil-cerdik", name: "Kancil Cerdik", meaning: "хитрый канчиль", desc: "Отвечайте правильно в тренировках",
-    metric: "correct", tiers: [50, 500, 2000, 10000], rewards: [5, 25, 80, 200], color: "#C0605A", icon: "kancil" },
-  { id: "tanpa-cela", name: "Tanpa Cela", meaning: "без изъяна", desc: "Тренировки без единой ошибки (от 5 слов)",
-    metric: "flawless", tiers: [1, 10, 50], rewards: [5, 30, 100], color: "#8A6BB0", icon: "kamboja" },
-  { id: "hafal-luar-kepala", name: "Hafal Luar Kepala", meaning: "знаю назубок", desc: "Отмечайте слова выученными копытцем",
-    metric: "learned", tiers: [10, 50, 200, 500], rewards: [5, 20, 60, 120], color: "#2E7D74", icon: "wayang" },
-  { id: "jago-imbuhan", name: "Jago Imbuhan", meaning: "мастер аффиксов", desc: "Правильные ответы в режиме «Аффиксы»",
-    metric: "affixCorrect", tiers: [10, 50, 200], rewards: [10, 30, 80], color: "#D94F8C", icon: "komodo" },
-  { id: "latihan-terus", name: "Latihan Terus", meaning: "тренируйся дальше", desc: "Проходите тренировки до конца",
-    metric: "sessions", tiers: [1, 10, 50, 200], rewards: [3, 15, 50, 120], color: "#1BA3B5", icon: "kuku" },
-  { id: "penjelajah-kamus", name: "Penjelajah Kamus", meaning: "исследователь словаря", desc: "Открывайте разные статьи словаря",
-    metric: "viewed", tiers: [20, 100, 500, 2000], rewards: [5, 15, 40, 100], color: "#9A5A28", icon: "meru" },
-  { id: "mata-elang", name: "Mata Elang", meaning: "орлиный глаз", desc: "Ищите слова по фото",
-    metric: "ocr", tiers: [1, 10, 50], rewards: [5, 15, 40], color: "#5B7FB5", icon: "mata" },
-  { id: "teman-sejati", name: "Teman Sejati", meaning: "настоящий друг", desc: "Добавляйте друзей по коду",
-    metric: "friends", tiers: [1, 3, 10], rewards: [10, 25, 60], color: "#E0533D", icon: "teman" },
+  { id: "rajin-datang", name: "Rajin Datang", caption: "Mampir belajar {n} hari — Kancil senang sekali!",
+    ru: "Заходите в приложение в разные дни", metric: "visitDays", tiers: [3, 7, 14, 30, 100], color: "#2E7D74", icon: "kuku" },
+  { id: "api-biru", name: "Api Biru", caption: "{n} hari berturut-turut, apinya tetap menyala!",
+    ru: "Занимайтесь дни подряд", metric: "bestStreak", tiers: [3, 7, 14, 30, 100], color: "#2F80ED", icon: "api-biru" },
+  { id: "hafal-luar-kepala", name: "Hafal Luar Kepala", caption: "Sudah hafal {n} kata. Pintar sekali!",
+    ru: "Выучите слова (отметьте копытцем)", metric: "learned", tiers: [10, 50, 100, 300, 1000], color: "#3E9B5F", icon: "wayang" },
+  { id: "pengumpul-kata", name: "Pengumpul Kata", caption: "{n} kata sudah masuk keranjang Kancil",
+    ru: "Добавьте слова в карточки", metric: "cards", tiers: [10, 50, 100, 300, 1000], color: "#D9962B", icon: "songket" },
+  { id: "si-rajin", name: "Si Rajin", caption: "Target harian tercapai {n} kali. Mantap!",
+    ru: "Выполните ежедневную цель", metric: "goalDays", tiers: [1, 7, 14, 30, 100], color: "#1BA3B5", icon: "gamelan" },
+  { id: "kancil-cerdik", name: "Kancil Cerdik", caption: "{n} jawaban benar — cerdik seperti Kancil!",
+    ru: "Правильные ответы в тренировках", metric: "correct", tiers: [50, 200, 500, 2000, 10000], color: "#C0605A", icon: "kancil" },
+  { id: "tanpa-cela", name: "Tanpa Cela", caption: "{n} latihan tanpa salah sedikit pun. Sempurna!",
+    ru: "Тренировки без единой ошибки (от 5 слов)", metric: "flawless", tiers: [1, 5, 10, 30, 100], color: "#8A6BB0", icon: "kamboja" },
+  { id: "jago-imbuhan", name: "Jago Imbuhan", caption: "{n} imbuhan dijawab dengan benar. Jago!",
+    ru: "Правильные ответы в режиме «Аффиксы»", metric: "affixCorrect", tiers: [10, 30, 100, 300, 1000], color: "#D94F8C", icon: "komodo" },
+  { id: "penjelajah-kamus", name: "Penjelajah Kamus", caption: "Sudah menjelajahi {n} kata di kamus",
+    ru: "Откройте разные статьи словаря", metric: "viewed", tiers: [20, 100, 300, 1000, 3000], color: "#9A5A28", icon: "meru" },
+  { id: "mata-elang", name: "Mata Elang", caption: "{n} kali mencari kata lewat foto. Tajam!",
+    ru: "Ищите слова по фото", metric: "ocr", tiers: [1, 5, 10, 30, 100], color: "#5B7FB5", icon: "mata" },
+  { id: "teman-sejati", name: "Teman Sejati", caption: "Punya {n} teman belajar. Makin seru!",
+    ru: "Добавьте друзей по коду", metric: "friends", tiers: [1, 2, 3, 5, 10], color: "#E0533D", icon: "teman" },
 ];
 
 export type AchievementState = AchievementDef & {
@@ -56,7 +62,7 @@ function compute(): AchievementState[] {
     const value = m[a.metric] ?? 0;
     const reached = a.tiers.filter((t) => value >= t).length;
     const claimed = Math.min(claimedLevel(a.id), reached);
-    const claimable = a.rewards.slice(claimed, reached).reduce((s, x) => s + x, 0);
+    const claimable = TIER_REWARDS.slice(claimed, reached).reduce((s, x) => s + x, 0);
     const target = a.tiers[Math.min(reached, a.tiers.length - 1)];
     return { ...a, value, reached, claimed, claimable, target };
   });

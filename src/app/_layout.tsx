@@ -14,7 +14,7 @@ import {
 } from "@expo-google-fonts/nunito";
 import { Kancil, Text } from "../components/ui";
 import { useTheme, useIsDark } from "../lib/theme";
-import { userDb } from "../lib/userdb";
+import { userDb, markVisit } from "../lib/userdb";
 
 // Имя файла меняется вместе с версией словаря — тогда новая база копируется заново.
 const DICT_DB = "dictionary-v2.db";
@@ -53,9 +53,11 @@ export default function RootLayout() {
   // при сворачивании приложения — обновить виджет и рейтинг
   useEffect(() => {
     const sub = AppState.addEventListener("change", (s) => {
+      if (s === "active") markVisit();
       if (s === "background") { refreshWidget(); syncProfile().catch(() => {}); autoCloudBackup("background"); }
     });
     autoCloudBackup("launch");
+    markVisit();
     return () => sub.remove();
   }, []);
   if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: t.bg }} />;

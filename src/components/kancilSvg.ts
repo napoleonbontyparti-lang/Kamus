@@ -4,6 +4,8 @@
  * сначала все фигуры обводятся толстой линией, потом заливаются цветом фона —
  * остаётся один непрерывный контур без внутренних швов.
  */
+import { SLEEP_DARK, SLEEP_LIGHT } from "./sleepKancil";
+
 export type Mood = "hello" | "read" | "think" | "sleep" | "yay" | "sad" | "happy";
 
 export type KancilColors = { ink: string; fill: string; accent: string; blush: string };
@@ -106,7 +108,7 @@ function extras(mood: Mood, c: KancilColors): string {
     case "think":
       return `<text x="146" y="62" font-size="42" text-anchor="middle" ${font}>?</text>`;
     case "sleep":
-      return `<g ${font}><text x="136" y="62" font-size="18">z</text><text x="152" y="44" font-size="24">z</text><text x="170" y="24" font-size="30">z</text></g>`;
+      return `<g ${font}><text x="128" y="70" font-size="16">z</text><text x="146" y="52" font-size="22">z</text><text x="166" y="32" font-size="30">z</text></g>`;
     case "yay": {
       const star = (x: number, y: number, r: number) =>
         `<path d="M${x} ${y - r} L${x + r * 0.3} ${y - r * 0.3} L${x + r} ${y} L${x + r * 0.3} ${y + r * 0.3} L${x} ${y + r} L${x - r * 0.3} ${y + r * 0.3} L${x - r} ${y} L${x - r * 0.3} ${y - r * 0.3} Z" fill="${c.accent}"/>`;
@@ -120,11 +122,26 @@ function extras(mood: Mood, c: KancilColors): string {
   }
 }
 
+const isDarkColor = (hex: string) => {
+  const m = /^#?([0-9a-f]{6})/i.exec(hex);
+  if (!m) return false;
+  const n = parseInt(m[1], 16);
+  return ((n >> 16) & 255) * 0.299 + ((n >> 8) & 255) * 0.587 + (n & 255) * 0.114 < 128;
+};
+
 /** Рисунок 200×200. Цвета подстраиваются под тему (тёмная — светлые линии). */
 export function kancilSvg(mood: Mood = "hello", colors: Partial<KancilColors> = {}): string {
   const c = { ...DEFAULT_COLORS, ...colors };
+  if (mood === "sleep") {
+    // спящий канчиль — рисунок по образцу (с копытцем), «z» — в цвете темы
+    const href = isDarkColor(c.fill) ? SLEEP_DARK : SLEEP_LIGHT;
+    return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 200 200">
+  <image x="0" y="14" width="186" height="186" href="${href}" xlink:href="${href}"/>
+  ${extras(mood, c)}
+</svg>`;
+  }
   const ps = parts(mood);
-  const lying = mood === "sleep";
+  const lying = (mood as Mood) === "sleep";
   const tilt = mood === "think" ? -5 : mood === "sad" ? 4 : 0;
   const outline = ps.map((p) => p.line
     ? `<path d="${p.d}" stroke="${c.ink}" stroke-width="${p.line + 2 * W}" stroke-linecap="round" fill="none"/>`
