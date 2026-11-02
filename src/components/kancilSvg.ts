@@ -33,13 +33,13 @@ function leg(x1: number, y1: number, x2: number, y2: number, w1 = 13, w2 = 7.5):
 function parts(mood: Mood): Part[] {
   const tailUp = mood !== "sad" && mood !== "think";
   if (mood === "sleep") {
+    // лежит: ножки подогнуты, голова опущена, шея короткая и плавная
     const dy = 22;
     return [
-      { d: `M146 160 L168 160`, line: 7 }, // поджатые ножки
-      { d: `M92 162 L114 162`, line: 7 },
-      { d: `M158 134 C166 128 170 120 168 114`, line: 8 },
-      { d: `M80 150 C78 130 100 120 128 120 C156 120 170 132 168 148 C166 158 154 162 128 162 C102 162 82 160 80 150 Z` },
-      { d: shift(NECK, 4, 26) },
+      { d: `M74 150 C80 147 96 146 108 147 L108 160 C96 161 82 162 76 161 C71 159 70 153 74 150 Z` }, // подогнутая передняя нога
+      { d: `M166 132 C171 125 177 120 184 117 C185 126 181 133 172 138 Z` }, // хвостик
+      { d: `M86 146 C84 128 104 118 130 118 C156 118 172 128 172 144 C172 156 160 162 130 162 C106 162 88 158 86 146 Z` },
+      { d: `M70 104 C76 114 88 120 104 120 L110 150 L80 152 C74 142 70 132 70 120 Z` }, // шея и грудь
       { d: shift(EAR_BACK, 0, dy) }, { d: shift(EAR_FRONT, 0, dy) },
       { d: shift(HEAD, 0, dy) },
     ];
@@ -106,7 +106,7 @@ function extras(mood: Mood, c: KancilColors): string {
     case "think":
       return `<text x="146" y="62" font-size="42" text-anchor="middle" ${font}>?</text>`;
     case "sleep":
-      return `<g ${font}><text x="122" y="80" font-size="18">z</text><text x="138" y="62" font-size="24">z</text><text x="158" y="42" font-size="30">z</text></g>`;
+      return `<g ${font}><text x="136" y="62" font-size="18">z</text><text x="152" y="44" font-size="24">z</text><text x="170" y="24" font-size="30">z</text></g>`;
     case "yay": {
       const star = (x: number, y: number, r: number) =>
         `<path d="M${x} ${y - r} L${x + r * 0.3} ${y - r * 0.3} L${x + r} ${y} L${x + r * 0.3} ${y + r * 0.3} L${x} ${y + r} L${x - r * 0.3} ${y + r * 0.3} L${x - r} ${y} L${x - r * 0.3} ${y - r * 0.3} Z" fill="${c.accent}"/>`;
@@ -135,6 +135,7 @@ export function kancilSvg(mood: Mood = "hello", colors: Partial<KancilColors> = 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
   <g transform="rotate(${tilt} 104 110)">
     ${outline}${fill}
+    ${lying ? `<path d="M136 142 C142 132 158 132 162 146" stroke="${c.ink}" stroke-width="3.4" stroke-linecap="round" fill="none"/>` : ""}
     ${face(mood, c, lying ? 22 : 0)}
   </g>
   ${extras(mood, c)}
