@@ -5,6 +5,7 @@
 import { useSyncExternalStore } from "react";
 import { addSekti, claimedLevel, metrics, setClaimedLevel } from "./userdb";
 import { getCounters, getDailyGoal } from "./settings";
+import type { AchIcon } from "../components/Laurel";
 
 export type Metric =
   | "cards" | "learned" | "correct" | "affixCorrect" | "sessions" | "flawless"
@@ -12,32 +13,32 @@ export type Metric =
 
 export type AchievementDef = {
   id: string; name: string; meaning: string; desc: string; metric: Metric;
-  tiers: number[]; rewards: number[]; color: string; icon: string;
+  tiers: number[]; rewards: number[]; color: string; icon: AchIcon;
 };
 
 export const ACHIEVEMENTS: AchievementDef[] = [
   { id: "api-biru", name: "Api Biru", meaning: "синий огонь", desc: "Занимайтесь несколько дней подряд",
-    metric: "bestStreak", tiers: [3, 7, 30, 100], rewards: [10, 30, 100, 250], color: "#2F80ED", icon: "flame" },
+    metric: "bestStreak", tiers: [3, 7, 30, 100], rewards: [10, 30, 100, 250], color: "#2F80ED", icon: "api-biru" },
   { id: "si-rajin", name: "Si Rajin", meaning: "старательный", desc: "Выполняйте ежедневную цель",
-    metric: "goalDays", tiers: [1, 7, 30, 100], rewards: [5, 25, 80, 200], color: "#3E9B5F", icon: "flag" },
+    metric: "goalDays", tiers: [1, 7, 30, 100], rewards: [5, 25, 80, 200], color: "#3E9B5F", icon: "gamelan" },
   { id: "pengumpul-kata", name: "Pengumpul Kata", meaning: "собиратель слов", desc: "Добавляйте слова в карточки",
-    metric: "cards", tiers: [10, 50, 200, 500, 1000], rewards: [5, 15, 40, 80, 150], color: "#D9962B", icon: "albums" },
+    metric: "cards", tiers: [10, 50, 200, 500, 1000], rewards: [5, 15, 40, 80, 150], color: "#D9962B", icon: "songket" },
   { id: "kancil-cerdik", name: "Kancil Cerdik", meaning: "хитрый канчиль", desc: "Отвечайте правильно в тренировках",
-    metric: "correct", tiers: [50, 500, 2000, 10000], rewards: [5, 25, 80, 200], color: "#C0605A", icon: "bulb" },
+    metric: "correct", tiers: [50, 500, 2000, 10000], rewards: [5, 25, 80, 200], color: "#C0605A", icon: "kancil" },
   { id: "tanpa-cela", name: "Tanpa Cela", meaning: "без изъяна", desc: "Тренировки без единой ошибки (от 5 слов)",
-    metric: "flawless", tiers: [1, 10, 50], rewards: [5, 30, 100], color: "#8A6BB0", icon: "checkmark-done" },
+    metric: "flawless", tiers: [1, 10, 50], rewards: [5, 30, 100], color: "#8A6BB0", icon: "kamboja" },
   { id: "hafal-luar-kepala", name: "Hafal Luar Kepala", meaning: "знаю назубок", desc: "Отмечайте слова выученными копытцем",
-    metric: "learned", tiers: [10, 50, 200, 500], rewards: [5, 20, 60, 120], color: "#2E7D74", icon: "school" },
+    metric: "learned", tiers: [10, 50, 200, 500], rewards: [5, 20, 60, 120], color: "#2E7D74", icon: "wayang" },
   { id: "jago-imbuhan", name: "Jago Imbuhan", meaning: "мастер аффиксов", desc: "Правильные ответы в режиме «Аффиксы»",
-    metric: "affixCorrect", tiers: [10, 50, 200], rewards: [10, 30, 80], color: "#D94F8C", icon: "git-branch" },
+    metric: "affixCorrect", tiers: [10, 50, 200], rewards: [10, 30, 80], color: "#D94F8C", icon: "komodo" },
   { id: "latihan-terus", name: "Latihan Terus", meaning: "тренируйся дальше", desc: "Проходите тренировки до конца",
-    metric: "sessions", tiers: [1, 10, 50, 200], rewards: [3, 15, 50, 120], color: "#1BA3B5", icon: "barbell" },
+    metric: "sessions", tiers: [1, 10, 50, 200], rewards: [3, 15, 50, 120], color: "#1BA3B5", icon: "kuku" },
   { id: "penjelajah-kamus", name: "Penjelajah Kamus", meaning: "исследователь словаря", desc: "Открывайте разные статьи словаря",
-    metric: "viewed", tiers: [20, 100, 500, 2000], rewards: [5, 15, 40, 100], color: "#9A5A28", icon: "book" },
+    metric: "viewed", tiers: [20, 100, 500, 2000], rewards: [5, 15, 40, 100], color: "#9A5A28", icon: "meru" },
   { id: "mata-elang", name: "Mata Elang", meaning: "орлиный глаз", desc: "Ищите слова по фото",
-    metric: "ocr", tiers: [1, 10, 50], rewards: [5, 15, 40], color: "#5B7FB5", icon: "camera" },
+    metric: "ocr", tiers: [1, 10, 50], rewards: [5, 15, 40], color: "#5B7FB5", icon: "mata" },
   { id: "teman-sejati", name: "Teman Sejati", meaning: "настоящий друг", desc: "Добавляйте друзей по коду",
-    metric: "friends", tiers: [1, 3, 10], rewards: [10, 25, 60], color: "#E0533D", icon: "people" },
+    metric: "friends", tiers: [1, 3, 10], rewards: [10, 25, 60], color: "#E0533D", icon: "teman" },
 ];
 
 export type AchievementState = AchievementDef & {

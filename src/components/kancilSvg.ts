@@ -17,33 +17,43 @@ type Part = { d: string; line?: number }; // line — толщина «пало�
 const shift = (d: string, dx: number, dy: number) =>
   d.replace(/(-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)/g, (_, x, y) => `${+x + dx} ${+y + dy}`);
 
-const HEAD = `M44 84 C46 78 54 74 60 66 C68 54 82 50 94 54 C106 58 110 72 104 84 C98 96 84 98 72 96 C60 94 50 92 44 84 Z`;
-const EAR_FRONT = `M90 58 C96 42 108 34 122 36 C122 48 114 60 100 66 Z`;
-const EAR_BACK = `M78 56 C74 42 78 30 84 24 C92 32 94 46 90 58 Z`;
+// Пропорции по образцу: крупная голова, большое переднее ухо, S-образная шея,
+// короткое туловище, тонкие сужающиеся ножки, хвостик торчком.
+const HEAD = `M35 75 C38 74 41 72 44 67 C50 56 60 47 72 46 C85 45 97 51 98 61 C99 71 93 80 86 86 C80 91 76 94 71 94 C59 94 48 91 42 86 C38 82 35 79 35 75 Z`;
+const EAR_BACK = `M69 49 C69 37 74 26 80 19 C86 26 90 36 88 47 Z`;
+const EAR_FRONT = `M87 51 C93 40 108 33 125 35 C127 47 120 58 108 64 C103 67 99 68 96 68 Z`;
+const NECK = `M78 86 C88 82 96 72 98 64 C103 74 100 84 95 92 C91 99 95 105 104 103 L108 122 L72 130 C64 118 63 104 70 94 Z`;
+const BODY = `M66 118 C64 103 78 98 94 102 C108 105 122 99 138 97 C152 95 161 106 161 122 C161 136 155 144 147 146 L98 146 C82 146 68 134 66 118 Z`;
+
+/** Ножка, сужающаяся книзу: от (x1,y1) шириной w1 до (x2,y2) шириной w2. */
+function leg(x1: number, y1: number, x2: number, y2: number, w1 = 13, w2 = 7.5): string {
+  return `M${x1 - w1 / 2} ${y1} L${x1 + w1 / 2} ${y1} L${x2 + w2 / 2} ${y2} Q${x2} ${y2 + 2.5} ${x2 - w2 / 2} ${y2} Z`;
+}
 
 function parts(mood: Mood): Part[] {
-  const tailUp = mood === "yay" || mood === "happy" || mood === "hello";
+  const tailUp = mood !== "sad" && mood !== "think";
   if (mood === "sleep") {
     const dy = 22;
     return [
-      { d: `M150 156 L172 156`, line: 6 }, // поджатые ножки
-      { d: `M100 158 L122 158`, line: 6 },
-      { d: `M168 136 C176 132 180 126 178 120`, line: 6 },
-      { d: `M84 148 C82 128 104 118 130 118 C158 118 172 130 170 146 C168 156 156 158 130 158 C104 158 86 158 84 148 Z` },
-      { d: `M80 106 C86 116 94 122 108 122 L110 140 C92 142 80 132 74 116 Z` },
+      { d: `M146 160 L168 160`, line: 7 }, // поджатые ножки
+      { d: `M92 162 L114 162`, line: 7 },
+      { d: `M158 134 C166 128 170 120 168 114`, line: 8 },
+      { d: `M80 150 C78 130 100 120 128 120 C156 120 170 132 168 148 C166 158 154 162 128 162 C102 162 82 160 80 150 Z` },
+      { d: shift(NECK, 4, 26) },
       { d: shift(EAR_BACK, 0, dy) }, { d: shift(EAR_FRONT, 0, dy) },
       { d: shift(HEAD, 0, dy) },
     ];
   }
   return [
-    // тонкие ножки — главная примета канчиля
-    { d: `M101 130 L97 168`, line: 6 },
-    { d: `M114 132 L114 170`, line: 6 },
-    { d: `M147 130 L143 168`, line: 6 },
-    { d: `M158 126 L160 170`, line: 6 },
-    { d: tailUp ? `M164 108 C170 104 174 98 174 92` : `M166 114 C172 118 174 124 172 130`, line: 6 },
-    { d: `M92 118 C92 102 108 96 128 96 C150 96 168 102 168 118 C168 132 156 140 130 140 C106 140 92 134 92 118 Z` },
-    { d: `M80 86 C86 96 92 102 104 104 L108 126 C92 128 80 118 72 98 Z` },
+    // ножки: передние и задние, сужаются книзу и чуть расставлены
+    { d: leg(76, 128, 65, 174) },
+    { d: leg(98, 134, 94, 176) },
+    { d: leg(123, 138, 117, 174) },
+    { d: leg(148, 136, 151, 176) },
+    // хвостик-листик
+    { d: tailUp ? `M149 112 C153 104 159 98 167 94 C170 101 167 110 158 117 Z` : `M152 114 C160 116 166 122 166 131 C159 130 153 124 150 118 Z` },
+    { d: BODY },
+    { d: NECK },
     { d: EAR_BACK }, { d: EAR_FRONT },
     { d: HEAD },
   ];
@@ -52,7 +62,7 @@ function parts(mood: Mood): Part[] {
 function face(mood: Mood, c: KancilColors, dy: number): string {
   const sw = (w: number) => `stroke="${c.ink}" stroke-width="${w}" stroke-linecap="round" fill="none"`;
   const s = sw(W);
-  const e = { x: 76, y: 74 + dy };
+  const e = { x: 70, y: 73 + dy };
   let eyes: string;
   switch (mood) {
     case "sleep":
@@ -73,13 +83,13 @@ function face(mood: Mood, c: KancilColors, dy: number): string {
     default: // read — смотрит вниз, в книгу
       eyes = `<path d="M${e.x - 7} ${e.y + 2} Q${e.x} ${e.y + 7} ${e.x + 7} ${e.y + 2}" ${s}/>`;
   }
-  const nose = `<circle cx="48" cy="${83 + dy}" r="3.6" fill="${c.ink}"/>`;
+  const nose = `<circle cx="39.5" cy="${76 + dy}" r="3.4" fill="${c.ink}"/>`;
   const blush = mood === "yay" || mood === "happy" || mood === "hello" || mood === "read"
-    ? `<ellipse cx="88" cy="${85 + dy}" rx="6" ry="3.4" fill="${c.blush}"/>` : "";
+    ? `<ellipse cx="81" cy="${83 + dy}" rx="5.6" ry="3.2" fill="${c.blush}"/>` : "";
   const mouth = mood === "yay"
-    ? `<path d="M56 ${90 + dy} Q61 ${96 + dy} 66 ${91 + dy}" ${sw(3.2)}/>`
-    : mood === "think" ? `<circle cx="60" cy="${92 + dy}" r="2.2" fill="${c.ink}"/>` : "";
-  const ear = `<path d="${shift("M101 57 C104 50 109 45 115 43", 0, dy)}" ${sw(3.2)}/>`;
+    ? `<path d="M48 ${86 + dy} Q53 ${92 + dy} 58 ${87 + dy}" ${sw(3.2)}/>`
+    : mood === "think" ? `<circle cx="52" cy="${88 + dy}" r="2.2" fill="${c.ink}"/>` : "";
+  const ear = `<path d="${shift("M99 58 C101 51 106 46 113 43", 0, dy)}" ${sw(3.4)}/>`;
   return nose + blush + eyes + mouth + ear;
 }
 
@@ -104,7 +114,7 @@ function extras(mood: Mood, c: KancilColors): string {
         `<circle cx="136" cy="20" r="3" fill="${c.blush}"/><circle cx="22" cy="72" r="3" fill="${c.blush}"/>`;
     }
     case "sad":
-      return `<path d="M90 81 q-4 7 0 9 q4 -2 0 -9 z" fill="${c.accent}"/>`;
+      return `<path d="M82 80 q-4 7 0 9 q4 -2 0 -9 z" fill="${c.accent}"/>`;
     default:
       return "";
   }
