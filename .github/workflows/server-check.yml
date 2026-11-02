@@ -1,0 +1,19 @@
+# Быстрая проверка сервера KataCil (без сборки APK): push в ветку check.
+name: Server check
+on:
+  push:
+    branches: [check]
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Ping Supabase functions
+        run: |
+          URL=$(node -p "require('./app.json').expo.extra.supabase.url")
+          KEY=$(node -p "require('./app.json').expo.extra.supabase.anonKey")
+          for fn in find_profile leaderboard; do
+            OUT=$(curl -s -X POST "$URL/rest/v1/rpc/$fn" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" \
+                  -H "Content-Type: application/json" -d '{"p_code":"TEST-TEST"}' -w " HTTP:%{http_code}")
+            echo "::warning title=$fn::$OUT"
+          done
