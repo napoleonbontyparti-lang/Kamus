@@ -8,7 +8,8 @@ import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { extractTextFromImage, isSupported } from "expo-text-extractor";
+import { Platform } from "react-native";
+import { KatacilOcr } from "../../modules/katacil-ocr";
 import { KancilSays, Text } from "../components/ui";
 import { Word } from "../components/Word";
 import { search, type Hit } from "../lib/dict";
@@ -34,10 +35,16 @@ export default function OcrScreen() {
   useEffect(() => {
     (async () => {
       try {
-        if (!isSupported) throw new Error("Распознавание текста не поддерживается на этом устройстве.");
-        const small = await shrinkForOcr(uri);
-        const raw = await extractTextFromImage(small);
-        const ls = raw.join("\n").split(/\n+/).map((l) => l.trim()).filter(Boolean);
+        if (!KatacilOcr) throw new Error(Platform.OS === "ios"
+          ? "Поиск по фото пока работает только на Android."
+          : "Модуль распознавания не найден — переустановите приложение.");
+        // уменьшаем крупные фото; если не вышло — распознаём оригинал
+        let src = uri;
+        try { src = await shrinkForOcr(uri); } catch { src = uri; }
+        let raw: string[];
+        try { raw = await KatacilOcr.recognize(src); }
+        catch (e: any) { throw new Error(`Не удалось распознать текст: ${e?.message ?? e}`); }
+        const ls = raw.map((l) => l.trim()).filter(Boolean);
         const tokenLines: Token[][] = ls.map((l) => {
           const out: Token[] = [];
           let last = 0;
