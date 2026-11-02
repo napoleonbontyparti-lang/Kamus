@@ -3,13 +3,14 @@ import { ActivityIndicator, View } from "react-native";
 import { Stack } from "expo-router";
 import { SQLiteProvider, deleteDatabaseSync } from "expo-sqlite";
 import { StatusBar } from "expo-status-bar";
+import { NavigationBar } from "expo-navigation-bar";
 import {
   useFonts, Nunito_400Regular, Nunito_400Regular_Italic, Nunito_600SemiBold, Nunito_600SemiBold_Italic,
   Nunito_700Bold, Nunito_700Bold_Italic, Nunito_800ExtraBold, Nunito_800ExtraBold_Italic,
   Nunito_900Black, Nunito_900Black_Italic,
 } from "@expo-google-fonts/nunito";
 import { Kancil, Text } from "../components/ui";
-import { useTheme } from "../lib/theme";
+import { useTheme, useIsDark } from "../lib/theme";
 import { userDb } from "../lib/userdb";
 
 // Имя файла меняется вместе с версией словаря — тогда новая база копируется заново.
@@ -38,6 +39,7 @@ function Loading({ text }: { text: string }) {
 
 export default function RootLayout() {
   const t = useTheme();
+  const dark = useIsDark();
   const [fontsLoaded] = useFonts({
     Nunito_400Regular, Nunito_400Regular_Italic, Nunito_600SemiBold, Nunito_600SemiBold_Italic,
     Nunito_700Bold, Nunito_700Bold_Italic, Nunito_800ExtraBold, Nunito_800ExtraBold_Italic,
@@ -55,7 +57,8 @@ export default function RootLayout() {
         options={{ useNewConnection: false }}
         useSuspense
       >
-        <StatusBar style="auto" />
+        <StatusBar style={dark ? "light" : "dark"} />
+        <NavigationBar style={dark ? "light" : "dark"} />
         <Stack
           screenOptions={{
             headerStyle: { backgroundColor: t.bg },
@@ -73,6 +76,9 @@ export default function RootLayout() {
           <Stack.Screen name="study/[deckId]" options={{ title: "Тренировка" }} />
           <Stack.Screen name="card/[id]" options={{ title: "Карточка", presentation: "modal" }} />
           <Stack.Screen name="edit-entry/[id]" options={{ title: "Правка статьи", presentation: "modal" }} />
+          <Stack.Screen name="settings/affix" options={{ title: "Цветные аффиксы" }} />
+          <Stack.Screen name="settings/about" options={{ title: "О словаре" }} />
+          <Stack.Screen name="settings/edits" options={{ title: "Исправленные статьи" }} />
         </Stack>
       </SQLiteProvider>
     </Suspense>

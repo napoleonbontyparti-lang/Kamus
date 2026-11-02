@@ -7,6 +7,7 @@ const wrap = (d: any) => ({
   getFirstSync: (sql: string, p: any[] = []) => d.prepare(sql).get(...p) ?? null,
   runSync: (sql: string, p: any[] = []) => { const r = d.prepare(sql).run(...p); return { lastInsertRowId: r.lastInsertRowid, changes: r.changes }; },
   execSync: (sql: string) => d.exec(sql),
+  withTransactionSync: (fn: () => void) => { d.exec("BEGIN"); try { fn(); d.exec("COMMIT"); } catch (e) { d.exec("ROLLBACK"); throw e; } },
 });
 export const openDatabaseSync = (name: string) => wrap(new DatabaseSync(name === "user.db" ? ":memory:" : name));
 export const openTest = (path: string) => wrap(new DatabaseSync(path, { readOnly: true }));

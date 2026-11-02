@@ -5,8 +5,10 @@ import { Stack, router, useFocusEffect, useLocalSearchParams } from "expo-router
 import { Ionicons } from "@expo/vector-icons";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
+import { HoofButton, Hoof } from "../../components/Hoof";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
-  cardStateLabel, cardsInDeck, deleteDeck, exportDeckTsv, getDeck, renameDeck, type CardRow, type Deck,
+  cycleMark, cardStateLabel, cardsInDeck, deleteDeck, exportDeckTsv, getDeck, renameDeck, type CardRow, type Deck,
 } from "../../lib/userdb";
 import { normalize } from "../../lib/stemmer";
 import { useTheme, soft } from "../../lib/theme";
@@ -30,6 +32,8 @@ export default function DeckScreen() {
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState("");
   const [filter, setFilter] = useState("");
+  const [markFilter, setMarkFilter] = useState<-1 | 0 | 1 | 2>(-1);
+  const insets = useSafeAreaInsets();
 
   const refresh = useCallback(() => {
     const d = getDeck(deckId);
@@ -52,7 +56,7 @@ export default function DeckScreen() {
     const f = new File(Paths.cache, `${(deck?.name ?? "deck").replace(/[^\wа-яё\- ]/gi, "_")}.txt`);
     if (f.exists) f.delete();
     f.create();
-    f.write(exportDeckTsv(deckId));
+    f.writeSync(exportDeckTsv(deckId));
     await Sharing.shareAsync(f.uri, { mimeType: "text/plain", dialogTitle: "Экспорт колоды (Anki TSV)" });
   };
 
@@ -62,7 +66,10 @@ export default function DeckScreen() {
       { text: "Удалить", style: "destructive", onPress: () => { deleteDeck(deckId); router.back(); } },
     ]);
 
-  const shown = filter ? cards.filter((c) => (c.front + " " + c.back).toLowerCase().includes(filter.toLowerCase())) : cards;
+  const shown = cards
+    .filter((c) => markFilter < 0 || c.mark === markFilter)
+    .filter((c) => !filter || (c.front + " " + c.back).toLowerCase().includes(filter.toLowerCase()));
+  const nMark = (m: number) => cards.filter((c) => c.mark === m).length;
 
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
@@ -81,7 +88,7 @@ export default function DeckScreen() {
       <FlatList
         data={shown}
         keyExtractor={(c) => String(c.id)}
-        contentContainerStyle={{ padding: 12, paddingBottom: 40 }}
+        contentContainerStyle={{ padding: 12, paddingBottom: 40 + insets.bottom }}
         ListHeaderComponent={
           <View>
             {renaming ? (
@@ -105,6 +112,19 @@ export default function DeckScreen() {
                   </Text>
                 </Pressable>
               ))}
+            </View>
+            <View style={styles.marks}>
+              {([[-1, "Все", cards.length], [1, "Выученные", nMark(1)], [2, "Не выученные", nMark(2)], [0, "Без метки", nMark(0)]] as const).map(([m, label, n]) => {
+                const on = markFilter === m;
+                const col = m === 1 ? t.accent : m === 2 ? t.amber : t.muted;
+                return (
+                  <Pressable key={m} onPress={() => setMarkFilter(m)}
+                    style={[styles.markChip, { backgroundColor: on ? t.accentSoft : t.card, borderColor: on ? t.accent : t.faint }]}>
+                    {m >= 0 ? <Hoof size={14} color={col} filled={m > 0} /> : null}
+                    <Text style={{ color: on ? t.accent : t.text, fontWeight: on ? "800" : "600", fontSize: 13 }}> {label} {n}</Text>
+                  </Pressable>
+                );
+              })}
             </View>
             <View style={styles.listHead}>
               <TextInput value={filter} onChangeText={setFilter} placeholder={`Фильтр (${cards.length})`}
@@ -134,6 +154,7 @@ export default function DeckScreen() {
               <Text numberOfLines={1} style={{ color: t.text, marginTop: 2 }}>{item.back}</Text>
             </View>
             <Text style={{ color: t.muted, fontSize: 12 }}>{cardStateLabel(item)}</Text>
+            <HoofButton mark={item.mark} style={{ marginLeft: 6 }} onPress={() => { cycleMark(item); refresh(); }} />
           </Pressable>
         )}
       />
@@ -148,6 +169,8 @@ const styles = StyleSheet.create({
   modeTitle: { fontSize: 16, fontWeight: "800", marginTop: 6 },
   rename: { flexDirection: "row", alignItems: "center", padding: 12, borderRadius: 12, borderWidth: 1, marginBottom: 12 },
   listHead: { flexDirection: "row", gap: 8, marginBottom: 6 },
+  marks: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 10 },
+  markChip: { flexDirection: "row", alignItems: "center", borderWidth: 1.5, borderRadius: 16, paddingHorizontal: 10, paddingVertical: 5 },
   filter: { flex: 1, borderWidth: 1, borderRadius: 21, paddingHorizontal: 16, height: 42, fontSize: 15 },
   addBtn: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center" },
   card: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 12, paddingHorizontal: 4, borderBottomWidth: StyleSheet.hairlineWidth },

@@ -1,4 +1,5 @@
 import { useColorScheme } from "react-native";
+import { useThemeMode } from "./settings";
 
 /** Тёплая «джунглевая» палитра: кремовый фон, бирюза, шерсть канчиля. */
 const light = {
@@ -41,9 +42,18 @@ const dark: typeof light = {
 
 export type Theme = typeof light;
 
+/** Тема из настроек: светлая по умолчанию, тёмная или как в системе. */
 export function useTheme(): Theme {
-  return useColorScheme() === "dark" ? dark : light;
+  const mode = useThemeMode();
+  const system = useColorScheme();
+  return isDark(mode, system) ? dark : light;
 }
+
+export function useIsDark(): boolean {
+  return isDark(useThemeMode(), useColorScheme());
+}
+
+const isDark = (mode: string, system: string | null | undefined) => mode === "dark" || (mode === "system" && system === "dark");
 
 /** Мягкая тень для карточек. */
 export const soft = (t: Theme) => ({

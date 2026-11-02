@@ -7,7 +7,7 @@
  *  affix      — корень + значение → вписать производную форму (mengadukan ← adu)
  *  truefalse  — пара слово/перевод: верно или нет, на скорость
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Text, TextInput, Kancil } from "../../components/ui";
 import { Stack, router, useLocalSearchParams } from "expo-router";
@@ -18,8 +18,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { randomGlosses } from "../../lib/dict";
 import { normalize } from "../../lib/stemmer";
 import {
-  GRADES, cardsInDeck, logPractice, previewIntervals, review, studyQueue, type CardRow,
+  GRADES, cardsInDeck, cardsOnDay, cycleMark, logPractice, logSession, previewIntervals, review, studyQueue, type CardRow,
 } from "../../lib/userdb";
+import { HoofButton } from "../../components/Hoof";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme, soft, type Theme } from "../../lib/theme";
 import { Word } from "../../components/Word";
 
@@ -39,7 +41,9 @@ const speak = (w: string) => { Speech.stop(); Speech.speak(w, { language: "id-ID
 export default function StudyScreen() {
   const t = useTheme();
   const db = useSQLiteContext();
-  const { deckId, mode = "flip" } = useLocalSearchParams<{ deckId: string; mode?: string }>();
+  const { deckId, mode = "flip", day } = useLocalSearchParams<{ deckId: string; mode?: string; day?: string }>();
+  const insets = useSafeAreaInsets();
+  const logged = useRef(false);
   const [queue, setQueue] = useState<CardRow[] | null>(null);
   const [pos, setPos] = useState(0);
   const [score, setScore] = useState({ ok: 0, bad: 0 });
@@ -48,6 +52,16 @@ export default function StudyScreen() {
   useEffect(() => {
     const id = Number(deckId);
     let q: CardRow[];
+    if (day) {
+      // тренировка по словам одного дня из календаря
+      let all: CardRow[] = cardsOnDay(day);
+      if (mode === "affix") all = all.filter((c) => c.root && normalize(c.root) !== normalize(c.front));
+      q = shuffle(all).slice(0, 30);
+      setQueue(q);
+      const pool = all.map((c) => ({ w: c.front, d: c.back }));
+      randomGlosses(db, 12).then((r) => setPool([...pool, ...r]));
+      return;
+    }
     if (mode === "flip") q = studyQueue(id);
     else {
       let all = cardsInDeck(id);
@@ -58,20 +72,29 @@ export default function StudyScreen() {
     const all = cardsInDeck(id).map((c) => ({ w: c.front, d: c.back }));
     if (all.length < 8) randomGlosses(db, 12).then((r) => setPool([...all, ...r]));
     else setPool(all);
-  }, [deckId, mode, db]);
+  }, [deckId, mode, db, day]);
 
   const next = (correct: boolean) => {
     setScore((s) => correct ? { ...s, ok: s.ok + 1 } : { ...s, bad: s.bad + 1 });
     setPos((p) => p + 1);
   };
 
+  const done = !!queue && pos >= queue.length;
+  // законченная тренировка попадает в календарь
+  useEffect(() => {
+    if (done && queue && queue.length && !logged.current) {
+      logged.current = true;
+      const unique = new Set(queue.map((c) => c.id)).size;
+      logSession(day ? null : Number(deckId), mode, unique, score.ok, score.bad);
+    }
+  }, [done]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!queue) return <View style={{ flex: 1, backgroundColor: t.bg }} />;
-  const done = pos >= queue.length;
   const card = queue[pos];
 
   return (
-    <View style={{ flex: 1, backgroundColor: t.bg }}>
-      <Stack.Screen options={{ title: TITLES[mode] ?? "Тренировка" }} />
+    <View style={{ flex: 1, backgroundColor: t.bg, paddingBottom: insets.bottom }}>
+      <Stack.Screen options={{ title: (TITLES[mode] ?? "Тренировка") + (day ? " · слова дня" : "") }} />
       {!done && (
         <View style={[styles.progress, { backgroundColor: t.faint }]}>
           <View style={{ width: `${(pos / Math.max(1, queue.length)) * 100}%`, height: "100%", backgroundColor: t.accent }} />
@@ -104,6 +127,7 @@ function Flip({ card, t, onDone }: { card: CardRow; t: Theme; onDone: (again: bo
   return (
     <View style={styles.flex}>
       <Pressable style={[styles.bigCard, { backgroundColor: t.card, borderColor: "transparent" }, soft(t)]} onPress={() => setShown(true)}>
+        <MarkCorner card={card} />
         <Word form={card.front} root={card.root} style={[styles.front, { color: t.hw }]} />
         <Pressable hitSlop={10} onPress={() => speak(card.front)} style={{ marginTop: 8 }}>
           <Ionicons name="volume-medium-outline" size={26} color={t.accent} />
@@ -292,6 +316,13 @@ function TrueFalse({ card, pool, t, onDone }: { card: CardRow; pool: { w: string
       </View>
     </View>
   );
+}
+
+/** Копытце в углу карточки: отметить слово выученным прямо во время повторения. */
+function MarkCorner({ card }: { card: CardRow }) {
+  const [mark, setMark] = useState(card.mark ?? 0);
+  return <HoofButton mark={mark} size={26} style={{ position: "absolute", left: 16, top: 16 }}
+    onPress={() => setMark(cycleMark({ ...card, mark }))} />;
 }
 
 /** Маленький канчиль в углу карточки: радуется или грустит после ответа. */

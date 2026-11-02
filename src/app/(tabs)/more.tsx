@@ -1,156 +1,182 @@
+/** «Мой» — страница пользователя (как в VoCat): резервная копия на Google Диске и настройки. */
 import { useCallback, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
-import { Text, KancilSays } from "../../components/ui";
-import { useFocusEffect, router } from "expo-router";
+import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { router, useFocusEffect } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
-import { File, Paths } from "expo-file-system";
-import * as Sharing from "expo-sharing";
+import * as DocumentPicker from "expo-document-picker";
+import { File } from "expo-file-system";
 import { Ionicons } from "@expo/vector-icons";
-import { allEntryEdits, listDecks, exportDeckTsv } from "../../lib/userdb";
+import Svg, { Path } from "react-native-svg";
+import { Kancil, Text } from "../../components/ui";
+import { Sheet } from "../../components/Sheet";
 import { useTheme, soft } from "../../lib/theme";
-import { Word } from "../../components/Word";
-import { AFFIX_PALETTE, setAffixColors, useAffixColors, type AffixColors } from "../../lib/settings";
+import {
+  allEntryEdits, exportBackup, exportDeckTsv, importBackup, listDecks, unsavedSince,
+} from "../../lib/userdb";
+import {
+  THEME_LABELS, reloadSettings, setLastBackup, setThemeMode, useAffixColors, useLastBackup, useThemeMode, type ThemeMode,
+} from "../../lib/settings";
+import { shareText } from "../../lib/files";
 
-export default function MoreScreen() {
+function DriveIcon({ size = 26 }: { size?: number }) {
+  // упрощённый значок «Диск»: три цветные грани
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path d="M8 3h8l7 12h-8z" fill="#FBBC04" />
+      <Path d="M8 3 1 15l4 6 7-12z" fill="#34A853" />
+      <Path d="M5 21h14l4-6H9z" fill="#4285F4" />
+    </Svg>
+  );
+}
+
+const fmtDate = (ts: number) => {
+  const d = new Date(ts);
+  return `${d.getDate()}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+};
+
+export default function MyScreen() {
   const t = useTheme();
   const db = useSQLiteContext();
-  const [meta, setMeta] = useState<Record<string, string>>({});
-  const [edits, setEdits] = useState<{ entry_id: number; hw: string }[]>([]);
+  const themeMode = useThemeMode();
+  const affix = useAffixColors();
+  const lastBackup = useLastBackup();
+  const [unsaved, setUnsaved] = useState(0);
+  const [edits, setEdits] = useState(0);
+  const [entries, setEntries] = useState("");
+  const [themeSheet, setThemeSheet] = useState(false);
 
   useFocusEffect(useCallback(() => {
-    db.getAllAsync<{ key: string; value: string }>("SELECT key, value FROM meta").then((rows) =>
-      setMeta(Object.fromEntries(rows.map((r) => [r.key, r.value]))));
-    const e = allEntryEdits();
-    Promise.all(e.map(async (x) => {
-      const r = await db.getFirstAsync<{ hw: string }>("SELECT hw FROM entries WHERE id = ?", [x.entry_id]);
-      return { entry_id: x.entry_id, hw: JSON.parse(x.data)[0]?.w || r?.hw || "?" };
-    })).then(setEdits);
-  }, [db]));
+    setUnsaved(unsavedSince(lastBackup));
+    setEdits(allEntryEdits().length);
+    db.getFirstAsync<{ value: string }>("SELECT value FROM meta WHERE key = 'entries'").then((r) =>
+      setEntries(r ? Number(r.value).toLocaleString("ru") : ""));
+  }, [db, lastBackup]));
 
-  const share = async (name: string, content: string) => {
-    const f = new File(Paths.cache, name);
-    if (f.exists) f.delete();
-    f.create();
-    f.write(content);
-    await Sharing.shareAsync(f.uri, { mimeType: "text/plain" });
+  const backup = async () => {
+    const d = new Date();
+    const name = `KataCil-backup-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}.json`;
+    await shareText(name, exportBackup(), "application/json", "Сохранить копию на Google Диск");
+    setLastBackup(Date.now());
+    setUnsaved(0);
+  };
+
+  const restore = async () => {
+    const res = await DocumentPicker.getDocumentAsync({ type: ["application/json", "text/plain", "*/*"], copyToCacheDirectory: true });
+    if (res.canceled || !res.assets?.[0]) return;
+    try {
+      const text = await new File(res.assets[0].uri).text();
+      Alert.alert("Восстановить из копии?", "Текущие колоды, карточки и история будут заменены данными из файла.", [
+        { text: "Отмена", style: "cancel" },
+        {
+          text: "Восстановить", style: "destructive", onPress: () => {
+            try {
+              const r = importBackup(text);
+              reloadSettings();
+              Alert.alert("Готово", `Восстановлено: ${r.decks} колод, ${r.cards} карточек.`);
+            } catch (e: any) { Alert.alert("Не получилось", String(e?.message ?? e)); }
+          },
+        },
+      ]);
+    } catch (e: any) {
+      Alert.alert("Не удалось прочитать файл", String(e?.message ?? e));
+    }
   };
 
   const exportAll = () => {
     const decks = listDecks();
     if (!decks.length) return Alert.alert("Нет колод");
-    const body = decks.map((d) => `#deck:${d.name}\n` + exportDeckTsv(d.id)).join("\n\n");
-    share("katacil-cards.txt", body);
+    shareText("katacil-cards.txt", decks.map((d) => `#deck:${d.name}\n` + exportDeckTsv(d.id)).join("\n\n"));
   };
 
-  const exportEdits = () => {
-    const e = allEntryEdits();
-    if (!e.length) return Alert.alert("Правок пока нет");
-    share("katacil-edits.json", JSON.stringify(e.map((x) => ({ entry_id: x.entry_id, senses: JSON.parse(x.data) })), null, 2));
-  };
-
-  const Row = ({ icon, title, sub, onPress }: { icon: any; title: string; sub?: string; onPress?: () => void }) => (
-    <Pressable onPress={onPress} style={[styles.row, { backgroundColor: t.card }, soft(t)]}>
-      <View style={[styles.rowIcon, { backgroundColor: t.accentSoft }]}><Ionicons name={icon} size={20} color={t.accent} /></View>
-      <View style={{ flex: 1 }}>
-        <Text style={{ color: t.text, fontSize: 16, fontWeight: "600" }}>{title}</Text>
-        {sub ? <Text style={{ color: t.muted, marginTop: 2, lineHeight: 19 }}>{sub}</Text> : null}
-      </View>
+  const Row = ({ icon, label, value, onPress, last }: { icon: React.ReactNode; label: string; value?: string; onPress: () => void; last?: boolean }) => (
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, { borderBottomColor: t.faint, borderBottomWidth: last ? 0 : StyleSheet.hairlineWidth, backgroundColor: pressed ? t.accentSoft : "transparent" }]}>
+      <View style={styles.rowIcon}>{icon}</View>
+      <Text style={[styles.rowLabel, { color: t.text }]}>{label}</Text>
+      {value ? <Text style={{ color: t.muted, fontSize: 15 }}>{value}</Text> : null}
+      <Ionicons name="chevron-forward" size={20} color={t.muted} style={{ marginLeft: 6 }} />
     </Pressable>
   );
+  const ic = (name: any) => <Ionicons name={name} size={22} color={t.text} />;
 
   return (
-    <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={{ padding: 12, paddingBottom: 40 }}>
-      <KancilSays mood="hello" size={112} title="Saya Si Kancil!"
-        text="Добро пожаловать в KataCil: kata — «слово», cil — от kancil и kecil. Я маленький, но хитрый оленёк из индонезийских сказок: найду любое слово и не дам его забыть." />
-      <Text style={[styles.h, { color: t.muted }]}>СЛОВАРЬ</Text>
-      <Row icon="book-outline" title={meta.title ?? "Словарь"}
-        sub={`${Number(meta.entries ?? 0).toLocaleString("ru")} гнёзд · ${Number(meta.forms ?? 0).toLocaleString("ru")} словоформ · работает без интернета`} />
-      <Row icon="globe-outline" title="KBBI"
-        sub="Если слова нет в словаре — кнопка внизу результатов поиска или «KBBI» в статье. Нужен интернет."
-        onPress={() => router.push({ pathname: "/kbbi/[word]", params: { word: "kamus" } })} />
+    <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={{ padding: 14, paddingBottom: 40 }}>
+      {/* резервная копия */}
+      <View style={{ marginTop: 18 }}>
+        <Kancil mood="hello" size={70} style={styles.peek} />
+        <View style={[styles.card, { backgroundColor: t.card }, soft(t)]}>
+          <View style={{ flexDirection: "row", gap: 12 }}>
+            <DriveIcon />
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: t.text, fontSize: 17, fontWeight: "800" }}>Резервная копия на Google Диске</Text>
+              <Text style={{ color: t.muted, marginTop: 4, lineHeight: 20 }}>
+                Все карточки хранятся на телефоне. Если удалить приложение, они пропадут —{" "}
+                <Text style={{ color: t.accent, fontWeight: "700" }}>сохраняйте копию на Google Диск</Text> время от времени.
+              </Text>
+              <Text style={{ color: unsaved ? t.amber : t.green, marginTop: 8, fontWeight: "700" }}>
+                {unsaved ? `Несохранённые изменения: ${unsaved}` : "Всё сохранено"}
+              </Text>
+              <Text style={{ color: t.muted, fontSize: 13, marginTop: 2 }}>
+                {lastBackup ? `Последняя копия: ${fmtDate(lastBackup)}` : "Копий ещё не было"}
+              </Text>
+            </View>
+          </View>
+          <View style={{ flexDirection: "row", gap: 10, marginTop: 14 }}>
+            <Pressable onPress={backup} style={[styles.btn, { backgroundColor: t.accent }]}>
+              <Ionicons name="cloud-upload-outline" size={18} color="#fff" />
+              <Text style={{ color: "#fff", fontWeight: "800" }}> Сохранить</Text>
+            </Pressable>
+            <Pressable onPress={restore} style={[styles.btn, { backgroundColor: t.accentSoft }]}>
+              <Ionicons name="cloud-download-outline" size={18} color={t.accent} />
+              <Text style={{ color: t.accent, fontWeight: "800" }}> Восстановить</Text>
+            </Pressable>
+          </View>
+          <Text style={{ color: t.muted, fontSize: 12.5, marginTop: 10, lineHeight: 18 }}>
+            «Сохранить» откроет меню «Поделиться» — выберите «Диск». «Восстановить» — выберите файл KataCil-backup на Диске.
+          </Text>
+        </View>
+      </View>
 
-      <Text style={[styles.h, { color: t.muted }]}>ЦВЕТНЫЕ АФФИКСЫ</Text>
-      <AffixSettings />
+      {/* настройки */}
+      <Text style={[styles.h, { color: t.muted }]}>ОФОРМЛЕНИЕ</Text>
+      <View style={[styles.group, { backgroundColor: t.card }, soft(t)]}>
+        <Row icon={ic(themeMode === "dark" ? "moon-outline" : "sunny-outline")} label="Тема" value={THEME_LABELS[themeMode]} onPress={() => setThemeSheet(true)} />
+        <Row icon={ic("color-palette-outline")} label="Цветные аффиксы" value={affix.enabled ? "Вкл." : "Выкл."} onPress={() => router.push("/settings/affix")} last />
+      </View>
+
+      <Text style={[styles.h, { color: t.muted }]}>СЛОВАРЬ</Text>
+      <View style={[styles.group, { backgroundColor: t.card }, soft(t)]}>
+        <Row icon={ic("book-outline")} label="О словаре" value={entries ? `${entries} гнёзд` : undefined} onPress={() => router.push("/settings/about")} />
+        <Row icon={ic("create-outline")} label="Исправленные статьи" value={String(edits)} onPress={() => router.push("/settings/edits")} />
+        <Row icon={ic("globe-outline")} label="KBBI" value="онлайн" onPress={() => router.push({ pathname: "/kbbi/[word]", params: { word: "kata" } })} last />
+      </View>
 
       <Text style={[styles.h, { color: t.muted }]}>ЭКСПОРТ</Text>
-      <Row icon="share-outline" title="Все карточки (Anki TSV)" sub="Файл → Импорт в Anki; колонки: слово, перевод, корень, заметка" onPress={exportAll} />
-      <Row icon="document-text-outline" title="Мои правки словаря (JSON)" sub="Пригодятся, чтобы внести исправления в следующую версию базы" onPress={exportEdits} />
+      <View style={[styles.group, { backgroundColor: t.card }, soft(t)]}>
+        <Row icon={ic("share-outline")} label="Карточки для Anki" value="TSV" onPress={exportAll} last />
+      </View>
 
-      {edits.length ? (
-        <>
-          <Text style={[styles.h, { color: t.muted }]}>ИСПРАВЛЕННЫЕ СТАТЬИ ({edits.length})</Text>
-          {edits.map((e) => (
-            <Pressable key={e.entry_id} onPress={() => router.push({ pathname: "/entry/[id]", params: { id: String(e.entry_id) } })}
-              style={[styles.editRow, { borderBottomColor: t.faint }]}>
-              <Text style={{ color: t.hw, fontSize: 16, fontWeight: "600" }}>{e.hw}</Text>
-            </Pressable>
-          ))}
-        </>
-      ) : null}
-
-      <Text style={[styles.h, { color: t.muted }]}>ПОДСКАЗКИ</Text>
-      <Text style={{ color: t.text, lineHeight: 22, paddingHorizontal: 4 }}>
-        • Поиск понимает аффиксы: di-, me-, ber-, ter-, pe-, per-, ke-…-an, -kan, -i, -nya, -lah, удвоение.{"\n"}
-        • Русское слово ищет по переводам.{"\n"}
-        • Закладка у слова в статье создаёт карточку.{"\n"}
-        • Нашли ошибку распознавания — карандаш в статье.{"\n"}
-        • Озвучка использует индонезийский голос телефона; если звука нет, установите голос «Bahasa Indonesia» в настройках синтеза речи.
-      </Text>
+      <Sheet
+        visible={themeSheet}
+        title="Тема"
+        onClose={() => setThemeSheet(false)}
+        items={(["light", "dark", "system"] as ThemeMode[]).map((m) => ({
+          label: THEME_LABELS[m] + (m === themeMode ? "  ✓" : ""),
+          color: m === themeMode ? t.accent : undefined,
+          icon: <Ionicons name={m === "light" ? "sunny-outline" : m === "dark" ? "moon-outline" : "phone-portrait-outline"} size={20} color={m === themeMode ? t.accent : t.text} />,
+          onPress: () => setThemeMode(m),
+        }))}
+      />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  h: { fontSize: 12, fontWeight: "800", letterSpacing: 0.8, marginTop: 18, marginBottom: 8, marginLeft: 4 },
-  row: { flexDirection: "row", gap: 12, alignItems: "center", padding: 14, borderRadius: 20, marginBottom: 10 },
-  rowIcon: { width: 38, height: 38, borderRadius: 13, alignItems: "center", justifyContent: "center" },
-  affix: { padding: 14, borderRadius: 20, marginBottom: 10 },
-  preview: { marginTop: 12, padding: 12, borderRadius: 14, alignItems: "center" },
-  swatches: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 6 },
-  swatch: { width: 30, height: 30, borderRadius: 15, borderWidth: 2.5, alignItems: "center", justifyContent: "center" },
-  editRow: { paddingVertical: 10, paddingHorizontal: 4, borderBottomWidth: StyleSheet.hairlineWidth },
+  peek: { position: "absolute", right: 14, top: -46, zIndex: 0 },
+  card: { borderRadius: 22, padding: 16, zIndex: 1 },
+  btn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 12, borderRadius: 16 },
+  h: { fontSize: 12, fontWeight: "800", letterSpacing: 0.8, marginTop: 22, marginBottom: 8, marginLeft: 6 },
+  group: { borderRadius: 20, overflow: "hidden" },
+  row: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 16 },
+  rowIcon: { width: 32 },
+  rowLabel: { flex: 1, fontSize: 17, fontWeight: "600" },
 });
-
-const ROWS: { key: keyof Omit<AffixColors, "enabled">; label: string; ex: string }[] = [
-  { key: "pre", label: "Приставки", ex: "me-, ber-, di-, per-, ke-" },
-  { key: "root", label: "Корень", ex: "без цвета — обычный" },
-  { key: "suf", label: "Суффиксы", ex: "-kan, -an, -i" },
-  { key: "clitic", label: "Частицы и местоимения", ex: "-nya, -ku, -mu, -lah, -pun" },
-];
-
-function AffixSettings() {
-  const t = useTheme();
-  const c = useAffixColors();
-  return (
-    <View style={[styles.affix, { backgroundColor: t.card }, soft(t)]}>
-      <View style={{ flexDirection: "row", alignItems: "center" }}>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: t.text, fontSize: 16, fontWeight: "700" }}>Раскрашивать части слова</Text>
-          <Text style={{ color: t.muted, marginTop: 2 }}>В статьях, поиске и карточках</Text>
-        </View>
-        <Switch value={c.enabled} onValueChange={(v) => setAffixColors({ enabled: v })}
-          trackColor={{ true: t.accent, false: t.faint }} thumbColor="#fff" />
-      </View>
-      <View style={[styles.preview, { backgroundColor: t.bg }]}>
-        <Word force form="mempertanggungjawabkannya" root="tanggung jawab" style={{ fontSize: 19, fontWeight: "800", color: t.hw }} />
-        <Word force form="ditandatanganilah" root="tanda" style={{ fontSize: 19, fontWeight: "800", color: t.hw, marginTop: 2 }} />
-      </View>
-      {ROWS.map((r) => (
-        <View key={r.key} style={{ marginTop: 12, opacity: c.enabled ? 1 : 0.55 }}>
-          <Text style={{ color: t.text, fontWeight: "700" }}>{r.label} <Text style={{ color: t.muted, fontWeight: "400" }}>{r.ex}</Text></Text>
-          <View style={styles.swatches}>
-            {AFFIX_PALETTE.map((col) => {
-              const on = c[r.key] === col;
-              return (
-                <Pressable key={col || "none"} onPress={() => setAffixColors({ [r.key]: col })} hitSlop={4}
-                  style={[styles.swatch, { backgroundColor: col || t.bg, borderColor: on ? t.text : col ? "transparent" : t.faint }]}>
-                  {!col ? <Ionicons name="remove" size={16} color={t.muted} /> : null}
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-      ))}
-    </View>
-  );
-}

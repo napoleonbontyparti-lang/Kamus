@@ -1,3 +1,4 @@
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Text } from "../../components/ui";
@@ -14,6 +15,7 @@ import { Word } from "../../components/Word";
 export default function EntryScreen() {
   const db = useSQLiteContext();
   const t = useTheme();
+  const insets = useSafeAreaInsets();
   const { id, sense } = useLocalSearchParams<{ id: string; sense?: string }>();
   const [entry, setEntry] = useState<Entry | null>(null);
   const [nb, setNb] = useState<{ prev: { id: number; hw: string } | null; next: { id: number; hw: string } | null }>({ prev: null, next: null });
@@ -73,7 +75,7 @@ export default function EntryScreen() {
           ),
         }}
       />
-      <ScrollView ref={scroll} contentContainerStyle={{ padding: 16, paddingBottom: 60 }}>
+      <ScrollView ref={scroll} contentContainerStyle={{ padding: 16, paddingBottom: 60 + insets.bottom }}>
         <View style={styles.meta}>
           <Text style={[styles.metaText, { color: t.muted }]}>
             Коригодский, стр. {entry.page}{entry.hom ? ` · омоним ${entry.hom}` : ""}{entry.edited ? " · исправлено вами" : ""}

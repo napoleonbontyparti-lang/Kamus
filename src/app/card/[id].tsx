@@ -1,3 +1,4 @@
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Text, TextInput } from "../../components/ui";
@@ -8,6 +9,7 @@ import { useTheme } from "../../lib/theme";
 /** Создание (id = "new") и редактирование карточки. */
 export default function CardScreen() {
   const t = useTheme();
+  const insets = useSafeAreaInsets();
   const p = useLocalSearchParams<{
     id: string; front?: string; back?: string; root?: string; entryId?: string; sense?: string; deckId?: string;
   }>();
@@ -55,7 +57,7 @@ export default function CardScreen() {
   );
 
   return (
-    <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={{ padding: 16, paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
+    <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={{ padding: 16, paddingBottom: 60 + insets.bottom }} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{
         title: isNew ? "Новая карточка" : "Карточка",
         headerRight: () => <Pressable onPress={save} hitSlop={8}><Text style={{ color: t.accent, fontWeight: "700", fontSize: 16 }}>Сохранить</Text></Pressable>,

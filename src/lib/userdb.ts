@@ -35,7 +35,15 @@ export function userDb(): SQLiteDatabase {
       grade INTEGER NOT NULL, mode TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS history(word TEXT PRIMARY KEY, ts INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS entry_edits(entry_id INTEGER PRIMARY KEY, data TEXT NOT NULL, ts INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS sessions(
+      id INTEGER PRIMARY KEY AUTOINCREMENT, deck_id INTEGER, mode TEXT NOT NULL, ts INTEGER NOT NULL,
+      total INTEGER NOT NULL, ok INTEGER NOT NULL, bad INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT NOT NULL);
   `);
+  // миграция: метка «выучено (1) / не выучено (2)» у карточки
+  const cols = db.getAllSync<{ name: string }>("PRAGMA table_info(cards)").map((c) => c.name);
+  if (!cols.includes("mark")) db.execSync("ALTER TABLE cards ADD COLUMN mark INTEGER NOT NULL DEFAULT 0");
+  db.execSync("CREATE INDEX IF NOT EXISTS cards_created ON cards(created)");
   const n = db.getFirstSync<{ c: number }>("SELECT count(*) c FROM decks");
   if (!n?.c) db.runSync("INSERT INTO decks(name, created) VALUES(?, ?)", ["Мои слова", Date.now()]);
   _db = db;
@@ -78,6 +86,7 @@ export function deleteDeck(id: number) {
 export type CardRow = {
   id: number; deck_id: number; front: string; back: string; root: string | null;
   entry_id: number | null; sense: number | null; note: string | null; created: number; due: number; state: string;
+  mark: number; // 0 — без метки, 1 — выучено, 2 — не выучено
 };
 
 export type NewCard = {
@@ -255,4 +264,111 @@ export function exportDeckTsv(deckId: number): string {
   const esc = (s: string | null) => (s ?? "").replace(/[\t\n\r]+/g, " ");
   return ["#separator:tab", "#html:false", "#columns:Front\tBack\tRoot\tNote",
     ...rows.map((r) => [r.front, r.back, r.root, r.note].map(esc).join("\t"))].join("\n");
+}
+
+// ───────── метки «выучено / не выучено» ─────────
+
+export const MARK_NONE = 0, MARK_LEARNED = 1, MARK_UNLEARNED = 2;
+
+export function setMark(cardIds: number[], mark: number) {
+  if (!cardIds.length) return;
+  userDb().runSync(`UPDATE cards SET mark = ? WHERE id IN (${cardIds.map(() => "?").join(",")})`, [mark, ...cardIds]);
+}
+
+/** Нажатие на копытце: нет метки → выучено → не выучено → нет метки. */
+export function cycleMark(card: CardRow): number {
+  const next = (card.mark + 1) % 3;
+  setMark([card.id], next);
+  return next;
+}
+
+// ───────── сессии тренировок ─────────
+
+export const MODE_TITLES: Record<string, string> = {
+  flip: "Повторение", "choice-ir": "ID → RU", "choice-ri": "RU → ID",
+  write: "Написание", affix: "Аффиксы", truefalse: "Верно/неверно",
+};
+
+export function logSession(deckId: number | null, mode: string, total: number, ok: number, bad: number) {
+  userDb().runSync("INSERT INTO sessions(deck_id, mode, ts, total, ok, bad) VALUES(?,?,?,?,?,?)",
+    [deckId, mode, Date.now(), total, ok, bad]);
+}
+
+// ───────── календарь ─────────
+
+const dayRange = (day: string) => {
+  const [y, m, d] = day.split("-").map(Number);
+  const from = new Date(y, m - 1, d).getTime();
+  return [from, from + 86400000] as const;
+};
+
+export const dayKey = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+/** Счётчики по дням месяца: сколько слов добавлено и сколько тренировок пройдено. */
+export function monthCounts(year: number, month0: number): { words: Record<string, number>; tests: Record<string, number> } {
+  const from = new Date(year, month0, 1).getTime();
+  const to = new Date(year, month0 + 1, 1).getTime();
+  const db = userDb();
+  const words: Record<string, number> = {};
+  const tests: Record<string, number> = {};
+  for (const r of db.getAllSync<{ created: number }>("SELECT created FROM cards WHERE created >= ? AND created < ?", [from, to]))
+    words[dayKey(new Date(r.created))] = (words[dayKey(new Date(r.created))] ?? 0) + 1;
+  for (const r of db.getAllSync<{ ts: number }>("SELECT ts FROM sessions WHERE ts >= ? AND ts < ?", [from, to]))
+    tests[dayKey(new Date(r.ts))] = (tests[dayKey(new Date(r.ts))] ?? 0) + 1;
+  return { words, tests };
+}
+
+export function cardsOnDay(day: string): (CardRow & { deck_name: string })[] {
+  const [a, b] = dayRange(day);
+  return userDb().getAllSync(
+    `SELECT c.*, d.name deck_name FROM cards c JOIN decks d ON d.id = c.deck_id
+     WHERE c.created >= ? AND c.created < ? ORDER BY c.created DESC`, [a, b]);
+}
+
+export type SessionRow = { id: number; deck_id: number | null; deck_name: string | null; mode: string; ts: number; total: number; ok: number; bad: number };
+
+export function sessionsOnDay(day: string): SessionRow[] {
+  const [a, b] = dayRange(day);
+  return userDb().getAllSync(
+    `SELECT s.*, d.name deck_name FROM sessions s LEFT JOIN decks d ON d.id = s.deck_id
+     WHERE s.ts >= ? AND s.ts < ? ORDER BY s.ts DESC`, [a, b]);
+}
+
+// ───────── резервная копия ─────────
+
+const BACKUP_TABLES = ["decks", "cards", "reviews", "sessions", "history", "entry_edits", "settings"] as const;
+
+export function exportBackup(): string {
+  const db = userDb();
+  const data: Record<string, unknown[]> = {};
+  for (const t of BACKUP_TABLES) data[t] = db.getAllSync(`SELECT * FROM ${t}`);
+  return JSON.stringify({ app: "KataCil", format: 1, exported: Date.now(), data });
+}
+
+export function importBackup(json: string): { cards: number; decks: number } {
+  const parsed = JSON.parse(json);
+  if (parsed?.app !== "KataCil" || !parsed.data) throw new Error("Это не резервная копия KataCil");
+  const db = userDb();
+  db.withTransactionSync(() => {
+    for (const t of BACKUP_TABLES) {
+      const rows: Record<string, unknown>[] = parsed.data[t] ?? [];
+      db.runSync(`DELETE FROM ${t}`);
+      for (const row of rows) {
+        const keys = Object.keys(row);
+        if (!keys.length) continue;
+        db.runSync(`INSERT OR REPLACE INTO ${t}(${keys.join(",")}) VALUES(${keys.map(() => "?").join(",")})`,
+          keys.map((k) => row[k] as any));
+      }
+    }
+  });
+  return { cards: parsed.data.cards?.length ?? 0, decks: parsed.data.decks?.length ?? 0 };
+}
+
+/** Сколько изменений не попало в последнюю копию (новые карточки + ответы). */
+export function unsavedSince(ts: number): number {
+  const db = userDb();
+  const c = db.getFirstSync<{ n: number }>("SELECT count(*) n FROM cards WHERE created > ?", [ts])?.n ?? 0;
+  const r = db.getFirstSync<{ n: number }>("SELECT count(*) n FROM sessions WHERE ts > ?", [ts])?.n ?? 0;
+  return c + r;
 }

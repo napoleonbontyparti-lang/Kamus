@@ -3,6 +3,7 @@ import { ActivityIndicator, Linking, Pressable, View } from "react-native";
 import { Text } from "../../components/ui";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { WebView } from "react-native-webview";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { KBBI_URL } from "../../lib/dict";
 import { useTheme } from "../../lib/theme";
@@ -11,12 +12,13 @@ import { useTheme } from "../../lib/theme";
 export default function KbbiScreen() {
   const { word } = useLocalSearchParams<{ word: string }>();
   const t = useTheme();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const url = KBBI_URL(word ?? "");
 
   return (
-    <View style={{ flex: 1, backgroundColor: t.bg }}>
+    <View style={{ flex: 1, backgroundColor: t.bg, paddingBottom: insets.bottom }}>
       <Stack.Screen
         options={{
           title: `KBBI: ${word}`,

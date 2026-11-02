@@ -1,3 +1,4 @@
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Text, TextInput } from "../../components/ui";
@@ -14,6 +15,7 @@ import { useTheme } from "../../lib/theme";
  */
 export default function EditEntryScreen() {
   const t = useTheme();
+  const insets = useSafeAreaInsets();
   const db = useSQLiteContext();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [senses, setSenses] = useState<Sense[]>([]);
@@ -33,7 +35,7 @@ export default function EditEntryScreen() {
   ]);
 
   return (
-    <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={{ padding: 16, paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
+    <ScrollView style={{ backgroundColor: t.bg }} contentContainerStyle={{ padding: 16, paddingBottom: 60 + insets.bottom }} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{
         headerRight: () => <Pressable onPress={save} hitSlop={8}><Text style={{ color: t.accent, fontWeight: "700", fontSize: 16 }}>Готово</Text></Pressable>,
       }} />
