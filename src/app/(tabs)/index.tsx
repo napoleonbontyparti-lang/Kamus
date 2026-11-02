@@ -12,7 +12,7 @@ import { Word } from "../../components/Word";
 import { Sheet } from "../../components/Sheet";
 import { pickImage } from "../../lib/images";
 
-const HOW_LABEL: Record<Hit["how"], string> = { exact: "", prefix: "", stem: "разбор", ru: "" };
+const HOW_LABEL: Record<Hit["how"], string> = { exact: "", prefix: "", stem: "разбор", ru: "", ruid: "", prov: "" };
 
 export default function SearchScreen() {
   const db = useSQLiteContext();
@@ -50,7 +50,9 @@ export default function SearchScreen() {
   const open = (h: Hit) => {
     addHistory(q.trim());
     Keyboard.dismiss();
-    router.push({ pathname: "/entry/[id]", params: { id: String(h.entryId), sense: String(h.sense) } });
+    if (h.how === "ruid") router.push({ pathname: "/ru/[id]", params: { id: String(h.refId) } });
+    else if (h.how === "prov") router.push({ pathname: "/proverbs/[id]", params: { id: String(h.chapter), focus: String(h.refId) } });
+    else router.push({ pathname: "/entry/[id]", params: { id: String(h.entryId), sense: String(h.sense) } });
   };
 
   const isRu = /[а-яё]/i.test(q);
@@ -99,6 +101,16 @@ export default function SearchScreen() {
                     ? "Пиши слово в любой форме — я сам отрежу приставки и суффиксы."
                     : "Пиши слово в любой форме: «rumahnya», «ketidakadilan», «dipertanggungjawabkan» — я найду корень. Можно и по-русски."} />
               </View>
+              <View style={styles.links}>
+                <Pressable onPress={() => router.push("/proverbs")} style={[styles.link, { backgroundColor: t.card }, soft(t)]}>
+                  <Ionicons name="chatbubbles-outline" size={18} color={t.amber} />
+                  <Text style={{ color: t.text, fontWeight: "700", flex: 1 }} numberOfLines={2}>Пословицы о животных</Text>
+                </Pressable>
+                <Pressable onPress={() => router.push("/settings/about")} style={[styles.link, { backgroundColor: t.card }, soft(t)]}>
+                  <Ionicons name="library-outline" size={18} color={t.accent} />
+                  <Text style={{ color: t.text, fontWeight: "700", flex: 1 }} numberOfLines={2}>Словари</Text>
+                </Pressable>
+              </View>
               {history.length ? (
                 <View style={styles.histHead}>
                   <Text style={[styles.section, { color: t.muted }]}>НЕДАВНО ИСКАЛИ</Text>
@@ -119,7 +131,7 @@ export default function SearchScreen() {
       ) : (
         <FlatList
           data={hits}
-          keyExtractor={(h) => `${h.entryId}:${h.sense}`}
+          keyExtractor={(h) => `${h.how}:${h.refId ?? h.entryId}:${h.sense}`}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           ListHeaderComponent={
@@ -136,10 +148,17 @@ export default function SearchScreen() {
           renderItem={({ item }) => (
             <Pressable onPress={() => open(item)} style={({ pressed }) => [
               styles.row, { backgroundColor: pressed ? t.accentSoft : t.card }]}>
+              {item.how === "ruid" || item.how === "prov" ? (
+                <Text style={[styles.src, { color: item.how === "prov" ? t.amber : t.accent }]}>
+                  {item.how === "prov" ? "ПОСЛОВИЦА" : "РУССКО-ИНДОНЕЗИЙСКИЙ"}
+                </Text>
+              ) : null}
               <View style={styles.rowHead}>
-                <Word form={item.form} root={item.hw} style={[styles.form, { color: t.hw }]} />
+                {item.how === "ruid" || item.how === "prov"
+                  ? <Text style={[styles.form, { color: item.how === "prov" ? t.text : t.hw, fontSize: item.how === "prov" ? 16 : 19 }]}>{item.form}</Text>
+                  : <Word form={item.form} root={item.hw} style={[styles.form, { color: t.hw }]} />}
                 {item.hom ? <Text style={[styles.hom, { color: t.muted }]}>{item.hom}</Text> : null}
-                {item.form.toLowerCase() !== item.hw.toLowerCase() ? (
+                {item.how !== "ruid" && item.how !== "prov" && item.form.toLowerCase() !== item.hw.toLowerCase() ? (
                   <Text style={[styles.rootLabel, { color: t.muted }]}>  ← {item.hw}</Text>
                 ) : null}
                 {item.analysis ? (
@@ -209,6 +228,9 @@ const styles = StyleSheet.create({
   rootLabel: { fontSize: 14 },
   badge: { fontSize: 11, marginLeft: 8, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, overflow: "hidden", fontWeight: "700" },
   gloss: { fontSize: 15, marginTop: 2, lineHeight: 20 },
+  src: { fontSize: 10.5, fontWeight: "800", letterSpacing: 0.6, marginBottom: 1 },
+  links: { flexDirection: "row", gap: 8, paddingHorizontal: 12, marginTop: 4 },
+  link: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6, padding: 12, borderRadius: 16 },
   family: { marginTop: 10, paddingLeft: 10, borderLeftWidth: 3 },
   familyHead: { fontSize: 11.5, fontWeight: "800", letterSpacing: 0.6, marginBottom: 4 },
   childRow: { paddingVertical: 5 },

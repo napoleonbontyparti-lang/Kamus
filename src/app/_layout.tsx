@@ -17,14 +17,14 @@ import { useTheme, useIsDark } from "../lib/theme";
 import { userDb, markVisit } from "../lib/userdb";
 
 // Имя файла меняется вместе с версией словаря — тогда новая база копируется заново.
-const DICT_DB = "dictionary-v2.db";
+const DICT_DB = "dictionary-v3.db";
 
 /** Старые версии базы словаря больше не нужны — освобождаем ~25 МБ. */
 let cleaned = false;
 function cleanupOldDictionaries() {
   if (cleaned) return;
   cleaned = true;
-  for (const old of ["dictionary-v1.db"]) {
+  for (const old of ["dictionary-v1.db", "dictionary-v2.db"]) {
     try { deleteDatabaseSync(old); } catch { /* файла нет — ничего страшного */ }
   }
 }
@@ -66,7 +66,7 @@ export default function RootLayout() {
     <Suspense fallback={<Loading text="Si Kancil раскладывает словарь…" />}>
       <SQLiteProvider
         databaseName={DICT_DB}
-        assetSource={{ assetId: require("../../assets/dictionary-v2.db") }}
+        assetSource={{ assetId: require("../../assets/dictionary-v3.db") }}
         options={{ useNewConnection: false }}
         useSuspense
       >
@@ -90,10 +90,13 @@ export default function RootLayout() {
           <Stack.Screen name="card/[id]" options={{ title: "Карточка", presentation: "modal" }} />
           <Stack.Screen name="edit-entry/[id]" options={{ title: "Правка статьи", presentation: "modal" }} />
           <Stack.Screen name="ocr" options={{ title: "Поиск по фото" }} />
+          <Stack.Screen name="ru/[id]" options={{ title: "" }} />
+          <Stack.Screen name="proverbs/index" options={{ title: "Пословицы о животных" }} />
+          <Stack.Screen name="proverbs/[id]" options={{ title: "" }} />
           <Stack.Screen name="settings/profile" options={{ title: "Профиль" }} />
           <Stack.Screen name="settings/friends" options={{ title: "Друзья и рейтинг" }} />
           <Stack.Screen name="settings/affix" options={{ title: "Цветные аффиксы" }} />
-          <Stack.Screen name="settings/about" options={{ title: "О словаре" }} />
+          <Stack.Screen name="settings/about" options={{ title: "Словари" }} />
           <Stack.Screen name="settings/edits" options={{ title: "Исправленные статьи" }} />
         </Stack>
       </SQLiteProvider>

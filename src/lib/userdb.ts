@@ -459,3 +459,8 @@ export function metrics(goalCount: number) {
     visitDays: one("SELECT count(*) n FROM visits"),
   };
 }
+
+export type SektiEntry = { id: number; ts: number; amount: number; reason: string };
+export function sektiHistory(limit = 50): SektiEntry[] {
+  return userDb().getAllSync<SektiEntry>("SELECT * FROM sekti_log ORDER BY ts DESC LIMIT ?", [limit]);
+}

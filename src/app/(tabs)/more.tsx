@@ -213,7 +213,8 @@ export default function MyScreen() {
 
       <Text style={[styles.h, { color: t.muted }]}>СЛОВАРЬ</Text>
       <View style={[styles.group, { backgroundColor: t.card }, soft(t)]}>
-        <Row icon={ic("book-outline")} label="О словаре" value={entries ? `${entries} гнёзд` : undefined} onPress={() => router.push("/settings/about")} />
+        <Row icon={ic("book-outline")} label="Словари" value={entries ? `${entries} гнёзд` : undefined} onPress={() => router.push("/settings/about")} />
+        <Row icon={ic("chatbubbles-outline")} label="Пословицы о животных" onPress={() => router.push("/proverbs")} />
         <Row icon={ic("create-outline")} label="Исправленные статьи" value={String(edits)} onPress={() => router.push("/settings/edits")} />
         <Row icon={ic("globe-outline")} label="KBBI" value="онлайн" onPress={() => router.push({ pathname: "/kbbi/[word]", params: { word: "kata" } })} last />
       </View>

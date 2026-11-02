@@ -14,7 +14,10 @@ export type Hit = {
   hom: number | null;
   gloss: string;
   /** как найдено: точная форма / начало слова / через корень / по-русски */
-  how: "exact" | "prefix" | "stem" | "ru";
+  how: "exact" | "prefix" | "stem" | "ru" | "ruid" | "prov";
+  /** для how = "ruid" — статья русско-индонезийского словаря, "prov" — пословица */
+  refId?: number;
+  chapter?: number;
   analysis?: string;
   /** для найденного корня — его производные (гнездо + составные из других статей) */
   children?: Hit[];
@@ -88,7 +91,10 @@ export async function search(db: SQLiteDatabase, query: string, limit = 60): Pro
     }
   }
 
-  return hits.slice(0, limit);
+  const out = hits.slice(0, limit);
+  // пословицы с этим словом
+  if (q.length >= 3) out.push(...(await searchProverbs(db, q, 5)));
+  return out;
 }
 
 /**
@@ -150,6 +156,37 @@ export async function derivatives(db: SQLiteDatabase, root: string, limit = 80):
 /** Обратный поиск: русское слово в толкованиях. */
 async function searchRussian(db: SQLiteDatabase, raw: string, limit: number): Promise<Hit[]> {
   const q = raw.toLowerCase().replace(/ё/g, "е");
+  const ruid = await searchRuEntries(db, q, 15);
+  const kor = await searchRussianKorigodsky(db, q, limit);
+  const prov = q.length >= 3 ? await searchProverbs(db, q, 4) : [];
+  return [...ruid, ...kor, ...prov];
+}
+
+/** Русско-индонезийский словарь: точное слово, затем начинающиеся с него. */
+export async function searchRuEntries(db: SQLiteDatabase, q: string, limit = 15): Promise<Hit[]> {
+  const n = q.toLowerCase().replace(/ё/g, "е").replace(/[^а-я\- ]/g, "").trim();
+  if (!n) return [];
+  const rows = await db.getAllAsync<{ id: number; hw: string; body: string }>(
+    `SELECT id, hw, body FROM ru_entries WHERE norm = ?
+     UNION ALL SELECT * FROM (SELECT id, hw, body FROM ru_entries WHERE norm > ? AND norm < ? ORDER BY norm LIMIT ?)`,
+    [n, n, n + "\uffff", limit]);
+  return rows.map((r) => ({
+    entryId: 0, sense: 0, form: r.hw, hw: r.hw, hom: null, gloss: r.body.slice(0, 150), how: "ruid" as const, refId: r.id,
+  }));
+}
+
+/** Пословицы о животных, где встречается слово (по-индонезийски или по-русски). */
+export async function searchProverbs(db: SQLiteDatabase, q: string, limit = 5): Promise<Hit[]> {
+  const n = q.toLowerCase().replace(/ё/g, "е");
+  const rows = await db.getAllAsync<{ id: number; chapter: number; text: string; meaning_id: string; meaning_ru: string; lang: string }>(
+    "SELECT id, chapter, text, meaning_id, meaning_ru, lang FROM proverbs WHERE search LIKE ? LIMIT ?", [`%${n}%`, limit]);
+  return rows.map((r) => ({
+    entryId: 0, sense: 0, form: r.text, hw: r.text, hom: null, how: "prov" as const, refId: r.id, chapter: r.chapter,
+    gloss: (r.lang === "id" ? r.meaning_ru || r.meaning_id : r.meaning_id).slice(0, 140),
+  }));
+}
+
+async function searchRussianKorigodsky(db: SQLiteDatabase, q: string, limit: number): Promise<Hit[]> {
   const rows = await db.getAllAsync<{ id: number; hw: string; hom: number | null; data: string }>(
     `SELECT id, hw, hom, data FROM entries WHERE replace(ru,'ё','е') LIKE ? LIMIT 400`, [`%${q}%`]);
   const word = new RegExp(`(^|[^а-яё])${escapeRe(q)}`, "i");
@@ -205,3 +242,36 @@ export async function randomGlosses(db: SQLiteDatabase, n: number): Promise<{ w:
 
 export const KBBI_URL = (word: string) =>
   `https://kbbi.kemdikbud.go.id/entri/${encodeURIComponent(normalize(word))}`;
+
+// ───────── русско-индонезийский словарь ─────────
+
+export type RuEntry = { id: number; hw: string; page: number; body: string; old: string };
+
+export async function getRuEntry(db: SQLiteDatabase, id: number): Promise<RuEntry | null> {
+  return db.getFirstAsync<RuEntry>("SELECT id, hw, page, body, old FROM ru_entries WHERE id = ?", [id]);
+}
+
+export async function ruNeighbours(db: SQLiteDatabase, id: number) {
+  const prev = await db.getFirstAsync<{ id: number; hw: string }>("SELECT id, hw FROM ru_entries WHERE id = ?", [id - 1]);
+  const next = await db.getFirstAsync<{ id: number; hw: string }>("SELECT id, hw FROM ru_entries WHERE id = ?", [id + 1]);
+  return { prev, next };
+}
+
+// ───────── пословицы о животных ─────────
+
+export type ProvChapter = { id: number; title_id: string; title_ru: string; lang: "id" | "ru"; section: string; page: number; text: string[]; count: number };
+export type Proverb = { id: number; chapter: number; lang: "id" | "ru"; text: string; meaning_id: string; meaning_ru: string; grp: string };
+
+export async function listChapters(db: SQLiteDatabase): Promise<ProvChapter[]> {
+  const rows = await db.getAllAsync<Omit<ProvChapter, "text"> & { text: string }>(
+    "SELECT c.*, (SELECT count(*) FROM proverbs p WHERE p.chapter = c.id) count FROM prov_chapters c ORDER BY c.id");
+  return rows.map((r) => ({ ...r, text: JSON.parse(r.text) }));
+}
+
+export async function getChapter(db: SQLiteDatabase, id: number): Promise<{ chapter: ProvChapter; proverbs: Proverb[] } | null> {
+  const r = await db.getFirstAsync<Omit<ProvChapter, "text"> & { text: string }>(
+    "SELECT c.*, (SELECT count(*) FROM proverbs p WHERE p.chapter = c.id) count FROM prov_chapters c WHERE id = ?", [id]);
+  if (!r) return null;
+  const proverbs = await db.getAllAsync<Proverb>("SELECT id, chapter, lang, text, meaning_id, meaning_ru, grp FROM proverbs WHERE chapter = ? ORDER BY id", [id]);
+  return { chapter: { ...r, text: JSON.parse(r.text) }, proverbs };
+}
