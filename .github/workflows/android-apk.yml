@@ -54,7 +54,7 @@ jobs:
           # с переводом строки: последняя строка gradle.properties его не имеет
           printf '\norg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g\n' >> gradle.properties
           set -o pipefail
-          ./gradlew assembleRelease --no-daemon 2>&1 | tee /tmp/gradle.log || {
+          ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a 2>&1 | tee /tmp/gradle.log || {
             # причину ошибки — в аннотации, чтобы её было видно без скачивания логов
             { grep -B2 -A25 "autolinking failed\|Error:" /tmp/gradle.log | head -60; awk '/What went wrong/{f=1} f{print} /Try:/{if(f)exit}' /tmp/gradle.log | head -20; } > /tmp/err.txt
             [ -s /tmp/err.txt ] || grep -iE "error|exception" /tmp/gradle.log | tail -25 > /tmp/err.txt
@@ -76,6 +76,6 @@ jobs:
         with:
           tag_name: v1.0.${{ github.run_number }}
           name: KataCil 1.0.${{ github.run_number }}
-          body: "Скачайте KataCil.apk на телефон Android и откройте его, чтобы установить."
+          body: "Скачайте KataCil.apk на телефон Android и откройте его, чтобы установить. Сборка для современных 64-битных телефонов (arm64)."
           files: KataCil.apk
           make_latest: true

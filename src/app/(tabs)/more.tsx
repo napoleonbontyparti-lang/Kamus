@@ -1,6 +1,6 @@
 /** «Настройки»: профиль, друзья, резервная копия на Google Диске, цель, вибрация, тема. */
 import { useCallback, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import * as DocumentPicker from "expo-document-picker";
@@ -22,6 +22,7 @@ import { cloudReady, saveCloudBackup } from "../../lib/cloud";
 import { setDailyGoal, setVibration, useDailyGoal, useProfile, useVibration, useCloudState, setCloudState, MODE_INFO, useAppMode, useShowWelcome, setShowWelcome } from "../../lib/settings";
 import { buzz } from "../../lib/haptics";
 import { SektiBalance } from "../../components/Sekti";
+import { isWidgetEnabled, pinWidget, placedWidgets, setWidgetEnabled, widgetSupported } from "../../widget/control";
 
 function DriveIcon({ size = 26 }: { size?: number }) {
   // упрощённый значок «Диск»: три цветные грани
@@ -56,6 +57,24 @@ export default function MyScreen() {
   const cloud = useCloudState();
   const appMode = useAppMode();
   const showWelcome = useShowWelcome();
+  const [widgetOn, setWidgetOn] = useState(true);
+  const [placed, setPlaced] = useState(0);
+  const refreshWidgetState = () => { setWidgetOn(isWidgetEnabled()); placedWidgets().then(setPlaced); };
+  const toggleWidget = (v: boolean) => {
+    if (!v && placed > 0) {
+      return Alert.alert("Выключить виджет?", "Виджет пропадёт с главного экрана и из списка виджетов. Включить его можно снова здесь же.", [
+        { text: "Отмена", style: "cancel" },
+        { text: "Выключить", style: "destructive", onPress: () => { setWidgetEnabled(false); refreshWidgetState(); } },
+      ]);
+    }
+    setWidgetEnabled(v); refreshWidgetState();
+    if (v) setTimeout(addWidget, 400);
+  };
+  const addWidget = async () => {
+    const ok = await pinWidget();
+    if (!ok) Alert.alert("Добавьте вручную", "Долгое нажатие на пустом месте главного экрана → «Виджеты» → KataCil → перетащите виджет на экран.");
+    setTimeout(refreshWidgetState, 1500);
+  };
   const [saving, setSaving] = useState(false);
   const saveNow = async () => {
     setSaving(true);
@@ -64,6 +83,7 @@ export default function MyScreen() {
   };
 
   useFocusEffect(useCallback(() => {
+    refreshWidgetState();
     setUnsaved(unsavedSince(lastBackup));
     setEdits(allEntryEdits().length);
     db.getFirstAsync<{ value: string }>("SELECT value FROM meta WHERE key = 'entries'").then((r) =>
@@ -213,6 +233,24 @@ export default function MyScreen() {
         <SwitchRow icon={ic("phone-portrait-outline")} label="Вибрация" sub="При ответах в тренировках"
           value={vibration} onChange={(v) => { setVibration(v); if (v) buzz("success"); }} last />
       </View>
+
+      {widgetSupported ? (
+        <>
+          <Text style={[styles.h, { color: t.muted }]}>ВИДЖЕТ НА ГЛАВНЫЙ ЭКРАН</Text>
+          <View style={[styles.group, { backgroundColor: t.card }, soft(t)]}>
+            <View style={{ alignItems: "center", paddingTop: 14, opacity: widgetOn ? 1 : 0.45 }}>
+              <Image source={require("../../../assets/widget-preview.png")} style={{ width: 250, height: 153, borderRadius: 18 }} resizeMode="contain" />
+            </View>
+            <SwitchRow icon={ic("grid-outline")} label="Виджет KataCil"
+              sub={widgetOn ? (placed ? `Включён · на экране: ${placed}` : "Включён · ещё не добавлен на экран") : "Выключен — не виден в списке виджетов"}
+              value={widgetOn} onChange={toggleWidget} last={!widgetOn} />
+            {widgetOn ? <Row icon={ic("add-circle-outline")} label="Добавить на главный экран" onPress={addWidget} last /> : null}
+          </View>
+          <Text style={{ color: t.muted, fontSize: 12.5, marginTop: 6, marginHorizontal: 6, lineHeight: 18 }}>
+            Канчиль, синий огонёк и дни подряд (и прогресс цели). Если кнопка не сработала: долгое нажатие на главном экране → «Виджеты» → KataCil.
+          </Text>
+        </>
+      ) : null}
 
       <Text style={[styles.h, { color: t.muted }]}>ОФОРМЛЕНИЕ</Text>
       <View style={[styles.group, { backgroundColor: t.card }, soft(t)]}>
