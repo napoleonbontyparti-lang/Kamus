@@ -10,6 +10,7 @@ import {
 import { SvgXml } from "react-native-svg";
 import { kancilSvg, type Mood } from "./kancilSvg";
 import { useTheme } from "../lib/theme";
+import { Bob } from "./anim";
 
 const FAMILY: Record<string, string> = {
   "400": "Nunito_400Regular", "500": "Nunito_600SemiBold", "600": "Nunito_600SemiBold",
@@ -58,7 +59,7 @@ export function KancilSays({ mood, title, text, size = 120, children }: {
   const t = useTheme();
   return (
     <View style={styles.says}>
-      <Kancil mood={mood} size={size} />
+      <Bob amount={3} period={2800}><Kancil mood={mood} size={size} /></Bob>
       <View style={[styles.bubble, { backgroundColor: t.card, borderColor: t.faint, shadowColor: t.shadow }]}>
         <View style={[styles.tail, { backgroundColor: t.card, borderColor: t.faint }]} />
         {title ? <Text style={[styles.bTitle, { color: t.accent }]}>{title}</Text> : null}

@@ -6,6 +6,7 @@ import { Text, TextInput, KancilSays } from "../../components/ui";
 import { createDeck, listDecks, stats, wordsToday, type Deck } from "../../lib/userdb";
 import { useDailyGoal } from "../../lib/settings";
 import { BlueFlame } from "../../components/BlueFlame";
+import { FadeInUp } from "../../components/anim";
 import { useTheme, soft } from "../../lib/theme";
 
 const DECK_COLORS = ["#2E7D74", "#D9962B", "#C0605A", "#5B7FB5", "#8A6BB0", "#3E9B5F"];
@@ -76,7 +77,7 @@ export default function DecksScreen() {
       renderItem={({ item, index }) => {
         const c = DECK_COLORS[index % DECK_COLORS.length];
         return (
-          <Pressable
+          <FadeInUp delay={Math.min(index, 6) * 60}><Pressable
             onPress={() => router.push({ pathname: "/deck/[id]", params: { id: String(item.id) } })}
             style={({ pressed }) => [styles.deck, { backgroundColor: t.card, transform: [{ scale: pressed ? 0.98 : 1 }] }, soft(t)]}
           >
@@ -90,7 +91,7 @@ export default function DecksScreen() {
             {item.due > 0 ? <Text style={[styles.pill, { backgroundColor: t.redSoft, color: t.red }]}>{item.due}</Text> : null}
             {item.fresh > 0 ? <Text style={[styles.pill, { backgroundColor: t.accentSoft, color: t.accent }]}>+{item.fresh}</Text> : null}
             <Ionicons name="chevron-forward" size={20} color={t.muted} />
-          </Pressable>
+          </Pressable></FadeInUp>
         );
       }}
       ListFooterComponent={

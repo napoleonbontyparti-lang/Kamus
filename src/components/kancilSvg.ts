@@ -5,6 +5,7 @@
  * остаётся один непрерывный контур без внутренних швов.
  */
 import { SLEEP_DARK, SLEEP_LIGHT } from "./sleepKancil";
+import { STAND_DARK, STAND_LIGHT } from "./standKancil";
 
 export type Mood = "hello" | "read" | "think" | "sleep" | "yay" | "sad" | "happy";
 
@@ -129,6 +130,28 @@ const isDarkColor = (hex: string) => {
   return ((n >> 16) & 255) * 0.299 + ((n >> 8) & 255) * 0.587 + (n & 255) * 0.114 < 128;
 };
 
+/** Дополнения для стоящего канчиля (координаты под рисунок пользователя). */
+function standExtras(mood: Mood, c: KancilColors): string {
+  const font = `font-family="Nunito, Arial Rounded MT Bold, sans-serif" font-weight="900" fill="${c.accent}"`;
+  const s = `stroke="${c.ink}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"`;
+  switch (mood) {
+    case "read":
+      return `<g transform="translate(76 168) rotate(-6)">
+        <path d="M-30 -4 Q-14 -10 0 -2 Q14 -10 30 -4 L30 22 Q14 16 0 24 Q-14 16 -30 22 Z" fill="${c.fill}" ${s}/>
+        <path d="M0 -2 L0 24" ${s}/>
+        <path d="M-22 5 h12 M-22 12 h10 M10 5 h12 M10 12 h10" stroke="${c.accent}" stroke-width="3" stroke-linecap="round"/>
+      </g>`;
+    case "think":
+      return `<text x="170" y="62" font-size="40" text-anchor="middle" ${font}>?</text>`;
+    case "sad":
+      return `<path d="M68 72 q-4 7 0 9 q4 -2 0 -9 z" fill="${c.accent}"/>`;
+    case "happy":
+      return `<path d="M168 34 l3 7 l7 3 l-7 3 l-3 7 l-3 -7 l-7 -3 l7 -3 z" fill="${c.accent}"/>`;
+    default:
+      return "";
+  }
+}
+
 /** Рисунок 200×200. Цвета подстраиваются под тему (тёмная — светлые линии). */
 export function kancilSvg(mood: Mood = "hello", colors: Partial<KancilColors> = {}): string {
   const c = { ...DEFAULT_COLORS, ...colors };
@@ -138,6 +161,16 @@ export function kancilSvg(mood: Mood = "hello", colors: Partial<KancilColors> = 
     return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 200 200">
   <image x="0" y="14" width="186" height="186" href="${href}" xlink:href="${href}"/>
   ${extras(mood, c)}
+</svg>`;
+  }
+  // остальные позы — рисунок пользователя без изменений, настроение — дополнениями вокруг
+  {
+    const href = isDarkColor(c.fill) ? STAND_DARK : STAND_LIGHT;
+    const tilt = mood === "think" ? -4 : mood === "sad" ? 3 : 0;
+    return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 200 200">
+  ${mood === "yay" ? extras("yay", c) : ""}
+  <g transform="rotate(${tilt} 100 120)"><image x="0" y="0" width="200" height="200" href="${href}" xlink:href="${href}"/></g>
+  ${mood === "yay" ? "" : standExtras(mood, c)}
 </svg>`;
   }
   const ps = parts(mood);

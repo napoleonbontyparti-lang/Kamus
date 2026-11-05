@@ -19,7 +19,7 @@ import {
 import { shareText } from "../../lib/files";
 import { Avatar } from "../../components/Avatar";
 import { cloudReady, saveCloudBackup } from "../../lib/cloud";
-import { setDailyGoal, setVibration, useDailyGoal, useProfile, useVibration, useCloudState, setCloudState } from "../../lib/settings";
+import { setDailyGoal, setVibration, useDailyGoal, useProfile, useVibration, useCloudState, setCloudState, MODE_INFO, useAppMode, useShowWelcome, setShowWelcome } from "../../lib/settings";
 import { buzz } from "../../lib/haptics";
 import { SektiBalance } from "../../components/Sekti";
 
@@ -54,6 +54,8 @@ export default function MyScreen() {
   const goal = useDailyGoal();
   const vibration = useVibration();
   const cloud = useCloudState();
+  const appMode = useAppMode();
+  const showWelcome = useShowWelcome();
   const [saving, setSaving] = useState(false);
   const saveNow = async () => {
     setSaving(true);
@@ -193,6 +195,13 @@ export default function MyScreen() {
       </View>
 
       {/* настройки */}
+      <Text style={[styles.h, { color: t.muted }]}>РЕЖИМ</Text>
+      <View style={[styles.group, { backgroundColor: t.card }, soft(t)]}>
+        <Row icon={ic("apps-outline")} label="Как использовать" value={MODE_INFO[appMode].title} onPress={() => router.push("/welcome")} />
+        <SwitchRow icon={ic("albums-outline")} label="Меню при запуске" sub="Выбор режима после заставки"
+          value={showWelcome} onChange={setShowWelcome} last />
+      </View>
+
       <Text style={[styles.h, { color: t.muted }]}>ОБУЧЕНИЕ</Text>
       <View style={[styles.group, { backgroundColor: t.card }, soft(t)]}>
         <SwitchRow icon={ic("flag-outline")} label="Ежедневная цель"

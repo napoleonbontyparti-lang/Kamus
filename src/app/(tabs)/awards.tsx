@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Kancil, Text } from "../../components/ui";
 import { Laurel } from "../../components/Laurel";
+import { FadeInUp, Pop } from "../../components/anim";
 import { SektiBalance, SektiIcon } from "../../components/Sekti";
 import { BlueFlame } from "../../components/BlueFlame";
 import { useTheme, soft } from "../../lib/theme";
@@ -49,7 +50,7 @@ export default function AwardsScreen() {
 
       {tab === "ach" ? (
         <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 30 }}>
-          {sorted.map((a) => <AchievementCard key={a.id} a={a} onClaim={() => take(a)} />)}
+          {sorted.map((a, i) => <FadeInUp key={a.id} delay={Math.min(i, 8) * 50}><AchievementCard a={a} onClaim={() => take(a)} /></FadeInUp>)}
           <Text style={{ color: t.muted, fontSize: 12.5, textAlign: "center", marginTop: 6, lineHeight: 18 }}>
             Секти — волшебные звёздочки канчиля. Копите их: скоро за них откроются новые возможности.
           </Text>
@@ -60,7 +61,7 @@ export default function AwardsScreen() {
 
       <Modal visible={!!reward} transparent animationType="fade" onRequestClose={() => setReward(null)}>
         <Pressable style={styles.backdrop} onPress={() => setReward(null)}>
-          <View style={[styles.rewardBox, { backgroundColor: t.card }]}>
+          <Pop trigger={reward} style={[styles.rewardBox, { backgroundColor: t.card }]}>
             <Kancil mood="yay" size={150} />
             <Text style={{ color: t.text, fontSize: 24, fontWeight: "900" }}>Hore!</Text>
             <Text style={{ color: t.muted, marginTop: 2 }}>{reward?.name}</Text>
@@ -72,7 +73,7 @@ export default function AwardsScreen() {
             <Pressable onPress={() => setReward(null)} style={[styles.ok, { backgroundColor: t.accent }]}>
               <Text style={{ color: "#fff", fontWeight: "800" }}>Terima kasih!</Text>
             </Pressable>
-          </View>
+          </Pop>
         </Pressable>
       </Modal>
     </View>

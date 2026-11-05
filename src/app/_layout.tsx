@@ -3,7 +3,7 @@ import { AppState } from "react-native";
 import { refreshWidget } from "../widget/handler";
 import { syncProfile, autoCloudBackup } from "../lib/cloud";
 import { ActivityIndicator, View } from "react-native";
-import { Stack } from "expo-router";
+import { Stack, router } from "expo-router";
 import { SQLiteProvider, deleteDatabaseSync } from "expo-sqlite";
 import { StatusBar } from "expo-status-bar";
 import { NavigationBar } from "expo-navigation-bar";
@@ -14,6 +14,7 @@ import {
 } from "@expo-google-fonts/nunito";
 import { Kancil, Text } from "../components/ui";
 import { useTheme, useIsDark } from "../lib/theme";
+import { getShowWelcome } from "../lib/settings";
 import { userDb, markVisit } from "../lib/userdb";
 
 // Имя файла меняется вместе с версией словаря — тогда новая база копируется заново.
@@ -27,6 +28,18 @@ function cleanupOldDictionaries() {
   for (const old of ["dictionary-v1.db", "dictionary-v2.db"]) {
     try { deleteDatabaseSync(old); } catch { /* файла нет — ничего страшного */ }
   }
+}
+
+/** После загрузки словаря показать меню режимов (если пользователь не отключил). */
+let welcomed = false;
+function WelcomeGate() {
+  useEffect(() => {
+    if (welcomed || !getShowWelcome()) return;
+    welcomed = true;
+    const h = setTimeout(() => router.push("/welcome"), 0);
+    return () => clearTimeout(h);
+  }, []);
+  return null;
 }
 
 function Loading({ text }: { text: string }) {
@@ -72,6 +85,7 @@ export default function RootLayout() {
       >
         <StatusBar style={dark ? "light" : "dark"} />
         <NavigationBar style={dark ? "light" : "dark"} />
+        <WelcomeGate />
         <Stack
           screenOptions={{
             headerStyle: { backgroundColor: t.bg },
@@ -83,6 +97,7 @@ export default function RootLayout() {
           }}
         >
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="welcome" options={{ headerShown: false, presentation: "fullScreenModal", gestureEnabled: false, animation: "fade" }} />
           <Stack.Screen name="entry/[id]" options={{ title: "" }} />
           <Stack.Screen name="kbbi/[word]" options={{ title: "KBBI" }} />
           <Stack.Screen name="deck/[id]" options={{ title: "Колода" }} />

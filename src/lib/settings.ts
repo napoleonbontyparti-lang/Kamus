@@ -126,3 +126,18 @@ export const bumpCounter = (k: keyof Counters, value?: number) => {
   const c = getCounters();
   write("counters", { ...c, [k]: value ?? c[k] + 1 });
 };
+
+// ───────── режим приложения (меню после заставки) ─────────
+
+export type AppMode = "dict" | "cards" | "learn";
+export const MODE_INFO: Record<AppMode, { title: string; tab: string }> = {
+  dict: { title: "Словарь", tab: "/" },
+  cards: { title: "Карточки", tab: "/decks" },
+  learn: { title: "Изучение языка", tab: "/learn" },
+};
+export const getAppMode = () => read<AppMode>("appMode", "cards");
+export const setAppMode = (m: AppMode) => write("appMode", m);
+export const useAppMode = () => useSyncExternalStore(subscribe, getAppMode);
+export const getShowWelcome = () => read<boolean>("showWelcome", true);
+export const setShowWelcome = (v: boolean) => write("showWelcome", v);
+export const useShowWelcome = () => useSyncExternalStore(subscribe, getShowWelcome);

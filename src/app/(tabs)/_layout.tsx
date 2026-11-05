@@ -3,6 +3,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../../lib/theme";
 import { claimableCount, refreshAchievements, useAchievements } from "../../lib/achievements";
+import { useAppMode, type AppMode } from "../../lib/settings";
+
+// какие вкладки видны в каждом режиме
+const VISIBLE: Record<AppMode, string[]> = {
+  dict: ["index", "decks", "awards", "more"],
+  cards: ["index", "decks", "calendar", "awards", "more"],
+  learn: ["learn", "index", "decks", "awards", "more"],
+};
 
 export default function TabsLayout() {
   const t = useTheme();
@@ -10,6 +18,8 @@ export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const bottom = Math.max(insets.bottom, 8);
   const claimable = claimableCount(useAchievements());
+  const mode = useAppMode();
+  const hide = (name: string) => (VISIBLE[mode].includes(name) ? {} : { href: null });
   return (
     <Tabs
       screenListeners={{ focus: () => refreshAchievements() }}
@@ -29,8 +39,18 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen
+        name="learn"
+        options={{
+          ...hide("learn"),
+          title: "Учёба",
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => <Ionicons name="school-outline" color={color as string} size={size} />,
+        }}
+      />
+      <Tabs.Screen
         name="index"
         options={{
+          ...hide("index"),
           title: "Словарь",
           headerShown: false,
           tabBarIcon: ({ color, size }) => <Ionicons name="search" color={color as string} size={size} />,
@@ -39,6 +59,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="decks"
         options={{
+          ...hide("decks"),
           title: "Карточки",
           tabBarIcon: ({ color, size }) => <Ionicons name="albums-outline" color={color as string} size={size} />,
         }}
@@ -46,6 +67,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="calendar"
         options={{
+          ...hide("calendar"),
           title: "Календарь",
           headerShown: false,
           tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" color={color as string} size={size} />,
@@ -54,6 +76,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="awards"
         options={{
+          ...hide("awards"),
           title: "Награды",
           headerShown: false,
           tabBarBadge: claimable > 0 ? claimable : undefined,
@@ -64,6 +87,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="more"
         options={{
+          ...hide("more"),
           title: "Настройки",
           headerTitle: "Настройки",
           headerTitleAlign: "center",

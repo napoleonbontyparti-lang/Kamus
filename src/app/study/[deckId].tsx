@@ -14,6 +14,7 @@ import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useSQLiteContext } from "expo-sqlite";
 import * as Speech from "expo-speech";
 import { buzz } from "../../lib/haptics";
+import { FadeInUp, Pop } from "../../components/anim";
 import { refreshWidget } from "../../widget/handler";
 import { refreshAchievements } from "../../lib/achievements";
 import { syncProfile } from "../../lib/cloud";
@@ -139,7 +140,7 @@ function Flip({ card, t, onDone }: { card: CardRow; t: Theme; onDone: (again: bo
           <Ionicons name="volume-medium-outline" size={26} color={t.accent} />
         </Pressable>
         {shown ? (
-          <ScrollView style={{ maxHeight: 260, marginTop: 18, alignSelf: "stretch" }}>
+          <FadeInUp style={{ alignSelf: "stretch" }}><ScrollView style={{ maxHeight: 260, marginTop: 18, alignSelf: "stretch" }}>
             <View style={[styles.sep, { backgroundColor: t.faint }]} />
             <Text style={[styles.back, { color: t.text }]}>{card.back}</Text>
             {card.root && normalize(card.root) !== normalize(card.front) ? (
@@ -151,13 +152,13 @@ function Flip({ card, t, onDone }: { card: CardRow; t: Theme; onDone: (again: bo
                 <Text style={{ color: t.accent, textAlign: "center", marginTop: 10 }}>Статья в словаре ›</Text>
               </Pressable>
             ) : null}
-          </ScrollView>
+          </ScrollView></FadeInUp>
         ) : (
           <Text style={{ color: t.muted, marginTop: 28 }}>Нажмите, чтобы увидеть перевод</Text>
         )}
       </Pressable>
       {shown ? (
-        <View style={styles.grades}>
+        <FadeInUp delay={80} style={styles.grades}>
           {GRADES.map((g, i) => {
             const colors = [t.red, t.amber, t.green, t.accent];
             return (
@@ -168,7 +169,7 @@ function Flip({ card, t, onDone }: { card: CardRow; t: Theme; onDone: (again: bo
               </Pressable>
             );
           })}
-        </View>
+        </FadeInUp>
       ) : (
         <Pressable style={[styles.primary, { backgroundColor: t.accent }]} onPress={() => setShown(true)}>
           <Text style={styles.primaryText}>Показать ответ</Text>
@@ -209,16 +210,16 @@ function Choice({ card, pool, reverse, t, onDone }: {
         <Text style={[reverse ? styles.back : styles.front, { color: reverse ? t.text : t.hw }]}>{reverse ? card.back : card.front}</Text>
       </View>
       <View style={{ gap: 10, padding: 16 }}>
-        {options.map((o) => {
+        {options.map((o, oi) => {
           const isRight = picked && o === right;
           const isWrong = picked === o && o !== right;
           return (
-            <Pressable key={o} onPress={() => pick(o)} style={[styles.option, {
+            <FadeInUp key={o} delay={oi * 70}><Pressable onPress={() => pick(o)} style={[styles.option, {
               backgroundColor: isRight ? t.greenSoft : isWrong ? t.redSoft : t.card,
               borderColor: isRight ? t.green : isWrong ? t.red : t.faint,
             }]}>
               <Text numberOfLines={3} style={{ color: reverse ? t.hw : t.text, fontSize: reverse ? 18 : 15, fontWeight: reverse ? "700" : "400" }}>{o}</Text>
-            </Pressable>
+            </Pressable></FadeInUp>
           );
         })}
       </View>
@@ -334,7 +335,7 @@ function MarkCorner({ card }: { card: CardRow }) {
 /** Маленький канчиль в углу карточки: радуется или грустит после ответа. */
 function Reaction({ state }: { state: boolean | null }) {
   if (state === null) return null;
-  return <Kancil mood={state ? "happy" : "sad"} size={58} style={{ position: "absolute", right: 8, top: 8 }} />;
+  return <Pop trigger={state} style={{ position: "absolute", right: 8, top: 8 }}><Kancil mood={state ? "happy" : "sad"} size={58} /></Pop>;
 }
 
 function Done({ t, total, score, mode }: { t: Theme; total: number; score: { ok: number; bad: number }; mode: string }) {
